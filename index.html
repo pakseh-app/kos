@@ -33,7 +33,7 @@
                     <i class="fas fa-circle text-[8px]"></i> Online
                 </span>
                 <span>•</span>
-                <button onclick="fetchData()" class="active:scale-95 transition-transform"><i class="fas fa-sync-alt"></i> Refresh</button>
+                <button onclick="manualRefresh()" class="active:scale-95 transition-transform"><i class="fas fa-sync-alt"></i> Refresh</button>
             </div>
         </div>
         <div class="flex gap-2">
@@ -266,18 +266,17 @@
 </div>
 
 <script>
-    // --- KONFIGURASI API ---
-    // GANTI STRING INI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
-    const API_URL = "https://script.google.com/macros/s/AKfycbzP9J8-0diXNKPEQHrVA2S62CRDTeoWrUQtaN1erVUKT6iky7N1ovx6IgLpmKlHL5oo/exec"; 
-    
-    // --- STATE APLIKASI ---
-    let appData = { anggota: [], transaksi: [], pembayaran: [] };
-    
-    // Generate daftar bulan otomatis dari Juli 2026 hingga Desember 2029
-    const namaBulanList = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    // =========================================================
+    // KONFIGURASI
+    // =========================================================
+    const API_URL = "https://script.google.com/macros/s/AKfycbzP9J8-0diXNKPEQHrVA2S62CRDTeoWrUQtaN1erVUKT6iky7N1ovx6IgLpmKlHL5oo/exec";
+
+    const STORAGE_KEY = "catatan_kas_local_v3";
+    const namaBulanList = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
     let monthList = [];
     for (let tahun = 2026; tahun <= 2029; tahun++) {
-        let bulanMulai = (tahun === 2026) ? 6 : 0; // Index 6 adalah Juli untuk awalan tahun 2026
+        const bulanMulai = tahun === 2026 ? 6 : 0;
         for (let bulan = bulanMulai; bulan < 12; bulan++) {
             monthList.push(`${namaBulanList[bulan]} ${tahun}`);
         }
@@ -286,98 +285,241 @@
     let selectedMonth = "Agustus 2026";
     let isAdmin = false;
     let savedPin = "";
-    let pendingPayment = null; // Menyimpan data pembayaran sementara
-    
-    // Filtered data for current month
-    let currentData = { pemasukan: 0, pengeluaran: 0, saldoAwal: 0, saldoAkhir: 0, txs: [], paidMembers: [] };
+    let pendingPayment = null;
 
-    // Formatter Rupiah
-    const formatRp = (angka) => {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+    let appData = {
+        anggota: [],
+        transaksi: [],
+        pembayaran: []
     };
 
-    // Formatter Tanggal (YYYY-MM-DD)
+    let currentData = {
+        pemasukan: 0,
+        pengeluaran: 0,
+        saldoAwal: 0,
+        saldoAkhir: 0,
+        txs: [],
+        paidMembers: []
+    };
+
+    // =========================================================
+    // FORMATTER
+    // =========================================================
+    const formatRp = (angka) => {
+        const n = Number(angka) || 0;
+        return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0
+        }).format(n);
+    };
+
     const getTodayDate = () => {
         const d = new Date();
-        return d.toISOString().split('T')[0];
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
     };
 
-    // Navigasi Tab
-    function switchTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-        document.getElementById(`tab-${tabId}`).classList.add('active');
-        
-        document.querySelectorAll('.nav-btn').forEach(el => {
-            el.classList.remove('text-blue-600', 'active');
-            el.classList.add('text-gray-400');
-        });
-        const activeBtn = document.querySelector(`.nav-btn[onclick="switchTab('${tabId}')"]`);
-        if(activeBtn) {
-            activeBtn.classList.remove('text-gray-400');
-            activeBtn.classList.add('text-blue-600', 'active');
+    const safeId = (value) => String(value ?? "").trim();
+
+    // =========================================================
+    // LOCAL STORAGE
+    // Ini adalah kunci perbaikan:
+    // pembayaran yang sudah berhasil disimpan tidak hilang
+    // ketika halaman di-refresh.
+    // =========================================================
+    function readLocalData() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return { pembayaran: [], transaksi: [] };
+
+            const data = JSON.parse(raw);
+            return {
+                pembayaran: Array.isArray(data.pembayaran) ? data.pembayaran : [],
+                transaksi: Array.isArray(data.transaksi) ? data.transaksi : []
+            };
+        } catch (e) {
+            console.error("Gagal membaca localStorage:", e);
+            return { pembayaran: [], transaksi: [] };
         }
     }
 
-    // Modal Control
+    function writeLocalData() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                pembayaran: appData.pembayaran.filter(p => p && p._localSaved),
+                transaksi: appData.transaksi.filter(t => t && t._localSaved)
+            }));
+        } catch (e) {
+            console.error("Gagal menyimpan localStorage:", e);
+        }
+    }
+
+    function clearLocalCache() {
+        localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function paymentKey(p) {
+        return [
+            safeId(p.bulan),
+            safeId(p.id_anggota),
+            safeId(p.nama),
+            Number(p.nominal) || 0
+        ].join("|");
+    }
+
+    function transactionKey(t) {
+        return [
+            safeId(t.tanggal),
+            safeId(t.bulan),
+            safeId(t.jenis),
+            safeId(t.kategori),
+            safeId(t.keterangan),
+            Number(t.nominal) || 0
+        ].join("|");
+    }
+
+    function mergeUnique(serverArray, localArray, keyFn) {
+        const result = Array.isArray(serverArray) ? [...serverArray] : [];
+        const keys = new Set(result.map(keyFn));
+
+        for (const item of (Array.isArray(localArray) ? localArray : [])) {
+            const key = keyFn(item);
+            if (!keys.has(key)) {
+                result.push(item);
+                keys.add(key);
+            }
+        }
+        return result;
+    }
+
+    function mergeLocalCacheWithServer(serverData) {
+        const local = readLocalData();
+
+        appData = {
+            anggota: Array.isArray(serverData?.anggota) ? serverData.anggota : [],
+            transaksi: mergeUnique(
+                Array.isArray(serverData?.transaksi) ? serverData.transaksi : [],
+                local.transaksi,
+                transactionKey
+            ),
+            pembayaran: mergeUnique(
+                Array.isArray(serverData?.pembayaran) ? serverData.pembayaran : [],
+                local.pembayaran,
+                paymentKey
+            )
+        };
+    }
+
+    function saveSuccessfulPaymentLocally(payment, transaction) {
+        // Payment/transaksi sudah dimasukkan ke appData secara optimistic.
+        // Cukup tandai objek yang sama sebagai tersimpan lokal.
+        const savedPayment = appData.pembayaran.find(p => safeId(p.id) === safeId(payment.id));
+        const savedTransaction = appData.transaksi.find(t => safeId(t.id) === safeId(transaction.id));
+
+        if (savedPayment) savedPayment._localSaved = true;
+        if (savedTransaction) savedTransaction._localSaved = true;
+
+        writeLocalData();
+    }
+
+    // =========================================================
+    // NAVIGASI
+    // =========================================================
+    function switchTab(tabId) {
+        document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+        const target = document.getElementById(`tab-${tabId}`);
+        if (target) target.classList.add("active");
+
+        document.querySelectorAll(".nav-btn").forEach(el => {
+            el.classList.remove("text-blue-600", "active");
+            el.classList.add("text-gray-400");
+        });
+
+        const activeBtn = document.querySelector(`.nav-btn[onclick="switchTab('${tabId}')"]`);
+        if (activeBtn) {
+            activeBtn.classList.remove("text-gray-400");
+            activeBtn.classList.add("text-blue-600", "active");
+        }
+    }
+
+    // =========================================================
+    // MODAL
+    // =========================================================
     function showModalBox(id) {
-        const overlay = document.getElementById('modal-overlay');
-        document.querySelectorAll('#modal-overlay > div').forEach(el => el.classList.add('hidden'));
-        
+        const overlay = document.getElementById("modal-overlay");
+        document.querySelectorAll("#modal-overlay > div").forEach(el => {
+            el.classList.add("hidden");
+            el.classList.remove("opacity-100", "scale-100");
+            el.classList.add("opacity-0", "scale-95");
+        });
+
         const modal = document.getElementById(id);
-        overlay.classList.remove('hidden');
-        modal.classList.remove('hidden');
-        
-        // Trigger animation
+        if (!modal) return;
+
+        overlay.classList.remove("hidden");
+        modal.classList.remove("hidden");
+
         setTimeout(() => {
-            overlay.classList.remove('opacity-0');
-            modal.classList.remove('opacity-0', 'scale-95');
-            modal.classList.add('opacity-100', 'scale-100');
+            overlay.classList.remove("opacity-0");
+            modal.classList.remove("opacity-0", "scale-95");
+            modal.classList.add("opacity-100", "scale-100");
         }, 10);
     }
 
     function closeModal() {
-        const overlay = document.getElementById('modal-overlay');
-        const activeModal = document.querySelector('#modal-overlay > div:not(.hidden)');
-        if(activeModal) {
-            activeModal.classList.remove('opacity-100', 'scale-100');
-            activeModal.classList.add('opacity-0', 'scale-95');
+        const overlay = document.getElementById("modal-overlay");
+        const activeModal = document.querySelector("#modal-overlay > div:not(.hidden)");
+
+        if (activeModal) {
+            activeModal.classList.remove("opacity-100", "scale-100");
+            activeModal.classList.add("opacity-0", "scale-95");
         }
-        overlay.classList.add('opacity-0');
+
+        overlay.classList.add("opacity-0");
+
         setTimeout(() => {
-            overlay.classList.add('hidden');
-        }, 300); // match transition duration
+            overlay.classList.add("hidden");
+        }, 250);
     }
 
-    // Custom Alert
-    function showMessage(title, desc, type="info") {
-        document.getElementById('msg-title').innerText = title;
-        document.getElementById('msg-desc').innerText = desc;
-        const iconDiv = document.getElementById('msg-icon');
-        
+    function showMessage(title, desc, type = "info") {
+        document.getElementById("msg-title").innerText = title;
+        document.getElementById("msg-desc").innerText = desc;
+
+        const iconDiv = document.getElementById("msg-icon");
         iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3";
-        if(type === 'success') {
-            iconDiv.classList.add('bg-green-100', 'text-green-600');
+
+        if (type === "success") {
+            iconDiv.classList.add("bg-green-100", "text-green-600");
             iconDiv.innerHTML = '<i class="fas fa-check text-xl"></i>';
-        } else if (type === 'error') {
-            iconDiv.classList.add('bg-red-100', 'text-red-600');
+        } else if (type === "error") {
+            iconDiv.classList.add("bg-red-100", "text-red-600");
             iconDiv.innerHTML = '<i class="fas fa-exclamation-triangle text-xl"></i>';
         } else {
-            iconDiv.classList.add('bg-blue-100', 'text-blue-600');
+            iconDiv.classList.add("bg-blue-100", "text-blue-600");
             iconDiv.innerHTML = '<i class="fas fa-info-circle text-xl"></i>';
         }
-        showModalBox('modal-message');
+
+        showModalBox("modal-message");
     }
 
+    // =========================================================
+    // ADMIN / PIN
+    // =========================================================
     function openPinModal() {
-        document.getElementById('input-pin').value = '';
-        showModalBox('modal-pin');
+        document.getElementById("input-pin").value = "";
+        showModalBox("modal-pin");
+        setTimeout(() => document.getElementById("input-pin").focus(), 100);
     }
 
     function verifyPin() {
-        const pin = document.getElementById('input-pin').value;
-        if(pin.length === 6) {
-            // Asumsi sementara benar, verifikasi server akan terjadi saat request edit
-            savedPin = pin; 
+        const pin = document.getElementById("input-pin").value.trim();
+
+        if (pin.length === 6) {
+            savedPin = pin;
             isAdmin = true;
             updateUIMode();
             closeModal();
@@ -395,72 +537,91 @@
     }
 
     function updateUIMode() {
-        if(isAdmin) {
-            document.getElementById('btn-lock').classList.add('hidden');
-            document.getElementById('btn-unlock').classList.remove('hidden');
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-        } else {
-            document.getElementById('btn-lock').classList.remove('hidden');
-            document.getElementById('btn-unlock').classList.add('hidden');
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
-        }
-        renderTableAnggota(); // Re-render to show/hide action buttons
+        document.getElementById("btn-lock").classList.toggle("hidden", isAdmin);
+        document.getElementById("btn-unlock").classList.toggle("hidden", !isAdmin);
+
+        document.querySelectorAll(".admin-only").forEach(el => {
+            el.classList.toggle("hidden", !isAdmin);
+        });
+
+        renderTableAnggota();
     }
 
+    // =========================================================
+    // BULAN
+    // =========================================================
     function initSelectors() {
-        const sel = document.getElementById('month-selector');
-        sel.innerHTML = '';
+        const sel = document.getElementById("month-selector");
+        sel.innerHTML = "";
+
         monthList.forEach(m => {
-            const opt = document.createElement('option');
+            const opt = document.createElement("option");
             opt.value = m;
             opt.innerText = m;
-            if(m === selectedMonth) opt.selected = true;
+            opt.selected = m === selectedMonth;
             sel.appendChild(opt);
+        });
+
+        document.querySelectorAll(".current-month-label").forEach(el => {
+            el.innerText = selectedMonth;
         });
     }
 
     function changeMonth() {
-        selectedMonth = document.getElementById('month-selector').value;
-        document.querySelectorAll('.current-month-label').forEach(el => el.innerText = selectedMonth);
+        selectedMonth = document.getElementById("month-selector").value;
+        document.querySelectorAll(".current-month-label").forEach(el => {
+            el.innerText = selectedMonth;
+        });
         processData();
     }
 
-    // Fungsi Utama Perhitungan Saldo Berantai
+    // =========================================================
+    // PERHITUNGAN
+    // =========================================================
     function processData() {
         let runningBalance = 0;
-        let foundCurrent = false;
 
-        // Reset currentData
-        currentData = { pemasukan: 0, pengeluaran: 0, saldoAwal: 0, saldoAkhir: 0, txs: [], paidMembers: [] };
+        currentData = {
+            pemasukan: 0,
+            pengeluaran: 0,
+            saldoAwal: 0,
+            saldoAkhir: 0,
+            txs: [],
+            paidMembers: []
+        };
 
-        // 1. Hitung saldo berantai dari awal bulan berdasarkan urutan array monthList
-        for (let m of monthList) {
-            // Ambil semua transaksi di bulan 'm'
-            let txBulanIni = appData.transaksi.filter(t => t.bulan === m);
-            
-            let inBulanIni = txBulanIni.filter(t => t.jenis === 'PEMASUKAN').reduce((acc, curr) => acc + parseInt(curr.nominal), 0);
-            let outBulanIni = txBulanIni.filter(t => t.jenis === 'PENGELUARAN').reduce((acc, curr) => acc + parseInt(curr.nominal), 0);
-            
-            let saldoAwalBulan = runningBalance;
-            let saldoAkhirBulan = saldoAwalBulan + inBulanIni - outBulanIni;
-            
-            // Jika ini bulan yang sedang dipilih user, simpan datanya untuk dirender
+        for (const m of monthList) {
+            const txBulanIni = appData.transaksi.filter(t => safeId(t.bulan) === m);
+
+            const inBulanIni = txBulanIni
+                .filter(t => t.jenis === "PEMASUKAN")
+                .reduce((acc, curr) => acc + (Number(curr.nominal) || 0), 0);
+
+            const outBulanIni = txBulanIni
+                .filter(t => t.jenis === "PENGELUARAN")
+                .reduce((acc, curr) => acc + (Number(curr.nominal) || 0), 0);
+
+            const saldoAwalBulan = runningBalance;
+            const saldoAkhirBulan = saldoAwalBulan + inBulanIni - outBulanIni;
+
             if (m === selectedMonth) {
                 currentData.saldoAwal = saldoAwalBulan;
                 currentData.pemasukan = inBulanIni;
                 currentData.pengeluaran = outBulanIni;
                 currentData.saldoAkhir = saldoAkhirBulan;
                 currentData.txs = txBulanIni;
-                foundCurrent = true;
             }
-            
-            // Update running balance untuk bulan berikutnya
+
             runningBalance = saldoAkhirBulan;
         }
 
-        // Ambil data pembayaran anggota bulan ini dan gunakan Set untuk memastikan unik (jaga-jaga ada duplikasi data)
-        const uniquePaidMembers = new Set(appData.pembayaran.filter(p => p.bulan === selectedMonth).map(p => p.id_anggota.toString()));
-        currentData.paidMembers = Array.from(uniquePaidMembers);
+        const uniquePaid = new Set(
+            appData.pembayaran
+                .filter(p => safeId(p.bulan) === selectedMonth)
+                .map(p => safeId(p.id_anggota))
+        );
+
+        currentData.paidMembers = [...uniquePaid];
 
         updateDashboardUI();
         renderTableAnggota();
@@ -468,130 +629,150 @@
     }
 
     function updateDashboardUI() {
-        // Kartu Saldo
-        document.getElementById('dash-saldo-akhir').innerText = formatRp(currentData.saldoAkhir);
-        document.getElementById('dash-pemasukan').innerText = formatRp(currentData.pemasukan);
-        document.getElementById('dash-pengeluaran').innerText = formatRp(currentData.pengeluaran);
-        
-        // Progress Pembayaran
+        document.getElementById("dash-saldo-akhir").innerText = formatRp(currentData.saldoAkhir);
+        document.getElementById("dash-pemasukan").innerText = formatRp(currentData.pemasukan);
+        document.getElementById("dash-pengeluaran").innerText = formatRp(currentData.pengeluaran);
+
         const total = appData.anggota.length;
-        // Pastikan jumlah yang sudah bayar tidak melebihi total anggota
-        const paid = Math.min(currentData.paidMembers.length, total); 
-        let percentage = total === 0 ? 0 : Math.round((paid / total) * 100);
-        
-        // Pastikan persentase maksimal 100%
-        if (percentage > 100) percentage = 100;
-        
-        document.getElementById('dash-paid-count').innerText = paid;
-        document.getElementById('dash-total-member').innerText = total;
-        document.getElementById('dash-progress-text').innerText = `${percentage}%`;
-        document.getElementById('dash-progress-bar').style.width = `${percentage}%`;
+        const paid = Math.min(currentData.paidMembers.length, total);
+        const percentage = total === 0 ? 0 : Math.min(100, Math.round((paid / total) * 100));
 
-        // Alur Kas
-        document.getElementById('dash-saldo-awal').innerText = formatRp(currentData.saldoAwal);
-        document.getElementById('dash-flow-in').innerText = `+ ${formatRp(currentData.pemasukan)}`;
-        document.getElementById('dash-flow-out').innerText = `- ${formatRp(currentData.pengeluaran)}`;
-        document.getElementById('dash-flow-akhir').innerText = formatRp(currentData.saldoAkhir);
+        document.getElementById("dash-paid-count").innerText = paid;
+        document.getElementById("dash-total-member").innerText = total;
+        document.getElementById("dash-progress-text").innerText = `${percentage}%`;
+        document.getElementById("dash-progress-bar").style.width = `${percentage}%`;
 
-        // --- Update Summary Tabel Kas ---
-        // Penyesuaian teks '-' jika kosong agar sangat identik dengan gambar catatan manual
-        const strPemasukan = currentData.pemasukan > 0 ? formatRp(currentData.pemasukan).replace('Rp', 'Rp ') : '-';
-        const strPengeluaran = currentData.pengeluaran > 0 ? formatRp(currentData.pengeluaran).replace('Rp', 'Rp ') : '-';
-        const strSisa = currentData.saldoAkhir !== 0 ? formatRp(currentData.saldoAkhir).replace('Rp', 'Rp ') : '-';
+        document.getElementById("dash-saldo-awal").innerText = formatRp(currentData.saldoAwal);
+        document.getElementById("dash-flow-in").innerText = `+ ${formatRp(currentData.pemasukan)}`;
+        document.getElementById("dash-flow-out").innerText = `- ${formatRp(currentData.pengeluaran)}`;
+        document.getElementById("dash-flow-akhir").innerText = formatRp(currentData.saldoAkhir);
 
-        document.getElementById('summary-total-kas').innerText = strPemasukan;
-        document.getElementById('summary-pengeluaran').innerText = strPengeluaran;
-        document.getElementById('summary-sisa').innerText = strSisa;
+        const strPemasukan = currentData.pemasukan > 0
+            ? formatRp(currentData.pemasukan).replace("Rp", "Rp ")
+            : "-";
+
+        const strPengeluaran = currentData.pengeluaran > 0
+            ? formatRp(currentData.pengeluaran).replace("Rp", "Rp ")
+            : "-";
+
+        const strSisa = currentData.saldoAkhir !== 0
+            ? formatRp(currentData.saldoAkhir).replace("Rp", "Rp ")
+            : "-";
+
+        document.getElementById("summary-total-kas").innerText = strPemasukan;
+        document.getElementById("summary-pengeluaran").innerText = strPengeluaran;
+        document.getElementById("summary-sisa").innerText = strSisa;
     }
 
+    // =========================================================
+    // TABEL ANGGOTA
+    // =========================================================
     function renderTableAnggota() {
-        const tbody = document.getElementById('member-table-body');
-        tbody.innerHTML = '';
-        
-        // Mengubah teks header tabel bulan secara dinamis ("Bulan Agustus", "Bulan September", dst)
-        const thBulan = document.getElementById('th-bulan-label');
-        if(thBulan) {
-            const namaBulan = selectedMonth.split(' ')[0]; // Ambil kata pertama (Agustus) dari "Agustus 2026"
-            thBulan.innerText = `Bulan ${namaBulan}`;
+        const tbody = document.getElementById("member-table-body");
+        tbody.innerHTML = "";
+
+        const thBulan = document.getElementById("th-bulan-label");
+        if (thBulan) {
+            thBulan.innerText = `Bulan ${selectedMonth.split(" ")[0]}`;
         }
-        
+
         appData.anggota.forEach((member, index) => {
-            const isPaid = currentData.paidMembers.includes(member.id.toString());
-            
-            // Format tulisan di dalam sel: Tampil nilai "10.000" jika lunas, atau "Belum" jika kosong
-            let nominalText = isPaid 
-                ? `<span class="font-medium text-gray-800">${formatRp(member.nominal).replace('Rp', '')}</span>` 
+            const isPaid = currentData.paidMembers.includes(safeId(member.id));
+            const nominal = Number(member.nominal) || 0;
+
+            const nominalText = isPaid
+                ? `<span class="font-medium text-gray-800">${formatRp(nominal).replace("Rp", "")}</span>`
                 : `<span class="text-gray-400 italic text-xs">Belum</span>`;
-            
-            let actionBtn = '';
+
+            let actionBtn = "";
+
             if (isAdmin && !isPaid) {
-                actionBtn = `<button onclick="bayarKas(${member.id}, '${member.nama}', ${member.nominal})" class="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded shadow-sm text-xs font-bold transition">Bayar</button>`;
+                actionBtn = `
+                    <button onclick="bayarKas(${JSON.stringify(member.id)}, ${JSON.stringify(member.nama)}, ${nominal})"
+                        class="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg shadow-sm text-xs font-bold transition active:scale-95">
+                        Bayar
+                    </button>`;
             } else if (isAdmin && isPaid) {
-                 actionBtn = `<span class="text-green-500 text-xs"><i class="fas fa-check"></i></span>`;
+                actionBtn = `<span class="text-green-500 text-xs"><i class="fas fa-check"></i></span>`;
             }
 
-            const tr = document.createElement('tr');
+            const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td class="p-3 text-center text-gray-500">${index + 1}</td>
-                <td class="p-3 text-gray-800">${member.nama}</td>
+                <td class="p-3 text-gray-800">${escapeHtml(member.nama)}</td>
                 <td class="p-3 text-right">${nominalText}</td>
-                <td class="p-3 text-right admin-only ${isAdmin ? '' : 'hidden'}">${actionBtn}</td>
+                <td class="p-3 text-right admin-only ${isAdmin ? "" : "hidden"}">${actionBtn}</td>
             `;
+
             tbody.appendChild(tr);
         });
     }
 
-    function renderTransaksi() {
-        const container = document.getElementById('transaction-list');
-        const emptyState = document.getElementById('no-transaction');
-        container.innerHTML = '';
-        
-        if(currentData.txs.length === 0) {
-            emptyState.classList.remove('hidden');
-        } else {
-            emptyState.classList.add('hidden');
-            // Urutkan dari terbaru
-            let sortedTxs = [...currentData.txs].reverse(); 
-            
-            sortedTxs.forEach(tx => {
-                const isIncome = tx.jenis === 'PEMASUKAN';
-                const icon = isIncome ? 'fa-arrow-down text-green-500' : 'fa-arrow-up text-red-500';
-                const bgIcon = isIncome ? 'bg-green-100' : 'bg-red-100';
-                const textColor = isIncome ? 'text-green-600' : 'text-gray-700';
-                const sign = isIncome ? '+' : '-';
-
-                // Parsing tanggal simple
-                let [d,m,y] = ["","",""];
-                if(tx.tanggal.includes("-")) { // YYYY-MM-DD
-                    [y,m,d] = tx.tanggal.split("-");
-                } else if(tx.tanggal.includes("/")) { // DD/MM/YYYY
-                     [d,m,y] = tx.tanggal.split("/");
-                } else {
-                     d = "xx";
-                }
-
-                const el = document.createElement('div');
-                el.className = "bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between";
-                el.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full ${bgIcon} flex items-center justify-center flex-shrink-0">
-                            <i class="fas ${icon}"></i>
-                        </div>
-                        <div>
-                            <p class="font-bold text-gray-800 text-sm">${tx.kategori}</p>
-                            <p class="text-[10px] text-gray-500">${d} ${tx.bulan} • ${tx.keterangan}</p>
-                        </div>
-                    </div>
-                    <div class="text-right flex-shrink-0 ml-2">
-                        <p class="font-bold ${textColor} text-sm">${sign} ${formatRp(tx.nominal)}</p>
-                    </div>
-                `;
-                container.appendChild(el);
-            });
-        }
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
     }
 
-    // Dummy Data jika API belum dipasang
+    // =========================================================
+    // TRANSAKSI
+    // =========================================================
+    function renderTransaksi() {
+        const container = document.getElementById("transaction-list");
+        const emptyState = document.getElementById("no-transaction");
+
+        container.innerHTML = "";
+
+        if (currentData.txs.length === 0) {
+            emptyState.classList.remove("hidden");
+            return;
+        }
+
+        emptyState.classList.add("hidden");
+
+        [...currentData.txs].reverse().forEach(tx => {
+            const isIncome = tx.jenis === "PEMASUKAN";
+            const icon = isIncome ? "fa-arrow-down text-green-500" : "fa-arrow-up text-red-500";
+            const bgIcon = isIncome ? "bg-green-100" : "bg-red-100";
+            const textColor = isIncome ? "text-green-600" : "text-gray-700";
+            const sign = isIncome ? "+" : "-";
+
+            let d = "xx";
+            if (String(tx.tanggal).includes("-")) {
+                d = String(tx.tanggal).split("-")[2] || "xx";
+            } else if (String(tx.tanggal).includes("/")) {
+                d = String(tx.tanggal).split("/")[0] || "xx";
+            }
+
+            const el = document.createElement("div");
+            el.className = "bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between";
+
+            el.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full ${bgIcon} flex items-center justify-center flex-shrink-0">
+                        <i class="fas ${icon}"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-gray-800 text-sm">${escapeHtml(tx.kategori)}</p>
+                        <p class="text-[10px] text-gray-500">${escapeHtml(d)} ${escapeHtml(tx.bulan)} • ${escapeHtml(tx.keterangan || "-")}</p>
+                    </div>
+                </div>
+                <div class="text-right flex-shrink-0 ml-2">
+                    <p class="font-bold ${textColor} text-sm">${sign} ${formatRp(tx.nominal)}</p>
+                </div>
+            `;
+
+            container.appendChild(el);
+        });
+    }
+
+    // =========================================================
+    // DATA MOCK
+    // Hanya dipakai jika API gagal / belum tersedia.
+    // =========================================================
     function loadMockData() {
         appData.anggota = [
             { id: 1, nama: "Wulan", nominal: 10000 },
@@ -603,7 +784,7 @@
             { id: 7, nama: "Intan", nominal: 10000 },
             { id: 8, nama: "Linda", nominal: 10000 }
         ];
-        
+
         appData.transaksi = [
             { id: "TX1", tanggal: "01/07/2026", bulan: "Juli 2026", jenis: "PEMASUKAN", kategori: "Sisa Bulan Lalu", keterangan: "-", nominal: 100000 },
             { id: "TX2", tanggal: "10/07/2026", bulan: "Juli 2026", jenis: "PENGELUARAN", kategori: "Kebersihan", keterangan: "Beli sapu", nominal: 40000 },
@@ -612,189 +793,257 @@
         ];
 
         appData.pembayaran = [
-            { id: "P1", bulan: "Agustus 2026", id_anggota: 1, nama: "Wulan", nominal: 10000, tanggal: "01/08/2026" },
-            { id: "P2", bulan: "Agustus 2026", id_anggota: 2, nama: "Titis", nominal: 10000, tanggal: "01/08/2026" },
-            { id: "P3", bulan: "Agustus 2026", id_anggota: 3, nama: "Anisa", nominal: 10000, tanggal: "02/08/2026" },
-            { id: "P4", bulan: "Agustus 2026", id_anggota: 4, nama: "Nanda", nominal: 10000, tanggal: "02/08/2026" },
-            { id: "P5", bulan: "Agustus 2026", id_anggota: 6, nama: "Salwa", nominal: 10000, tanggal: "03/08/2026" },
-            { id: "P6", bulan: "Agustus 2026", id_anggota: 7, nama: "Intan", nominal: 10000, tanggal: "03/08/2026" }
-            // Tari & Linda belum bayar Agustus
+            { id: "P1", bulan: "Agustus 2026", id_anggota: 1, nama: "Wulan", nominal: 10000, tanggal: "01/08/2026" }
         ];
+
+        // Gabungkan cache browser supaya data tidak kembali mundur saat refresh.
+        const local = readLocalData();
+        appData.transaksi = mergeUnique(appData.transaksi, local.transaksi, transactionKey);
+        appData.pembayaran = mergeUnique(appData.pembayaran, local.pembayaran, paymentKey);
     }
 
+    // =========================================================
+    // STATUS KONEKSI
+    // =========================================================
     function setStatus(text, colorClass) {
-        const el = document.getElementById('connection-status');
+        const el = document.getElementById("connection-status");
         el.className = `flex items-center gap-1 ${colorClass}`;
         el.innerHTML = `<i class="fas fa-circle text-[8px]"></i> ${text}`;
     }
 
-    async function fetchData() {
+    // =========================================================
+    // AMBIL DATA SERVER
+    // PERBAIKAN PENTING:
+    // hasil server digabung dengan localStorage, bukan menggantikan
+    // localStorage. Jadi GET yang terlambat/stale tidak membatalkan
+    // pembayaran yang baru saja berhasil.
+    // =========================================================
+    async function fetchData(showError = true) {
         setStatus("Memuat...", "text-yellow-500");
-        
-        if (!API_URL || API_URL === "") {
-            // Gunakan Mock Data jika API belum dipasang
-            console.log("API URL belum diatur, menggunakan data lokal.");
-            setTimeout(() => {
-                loadMockData();
-                initSelectors();
-                document.querySelectorAll('.current-month-label').forEach(el => el.innerText = selectedMonth);
-                processData();
-                setStatus("Lokal (API Kosong)", "text-orange-500");
-            }, 500); // simulasi delay
+
+        if (!API_URL) {
+            loadMockData();
+            initSelectors();
+            processData();
+            setStatus("Lokal", "text-orange-500");
             return;
         }
 
         try {
-            const response = await fetch(API_URL);
+            const response = await fetch(API_URL, {
+                method: "GET",
+                cache: "no-store"
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
             const result = await response.json();
-            
-            if(result.status === "success") {
-                appData = result.data;
-                initSelectors();
-                processData();
-                setStatus("Online", "text-green-500");
-            } else {
-                throw new Error("Gagal parsing data");
+
+            if (result.status !== "success") {
+                throw new Error(result.message || "Data server tidak valid");
             }
+
+            mergeLocalCacheWithServer(result.data || {});
+            initSelectors();
+            processData();
+            setStatus("Online", "text-green-500");
         } catch (error) {
-            console.error(error);
+            console.error("fetchData:", error);
+
+            // Jangan hapus data yang sudah tersimpan di browser.
+            const local = readLocalData();
+
+            if (appData.anggota.length === 0) {
+                loadMockData();
+            } else {
+                appData.pembayaran = mergeUnique(appData.pembayaran, local.pembayaran, paymentKey);
+                appData.transaksi = mergeUnique(appData.transaksi, local.transaksi, transactionKey);
+            }
+
+            initSelectors();
+            processData();
+
             setStatus("Offline", "text-red-500");
-            showMessage("Koneksi Gagal", "Gagal mengambil data terbaru dari Google Sheets.", "error");
+
+            if (showError) {
+                showMessage(
+                    "Koneksi Gagal",
+                    "Server tidak dapat dihubungi. Data pembayaran yang sudah tersimpan di perangkat tetap dipertahankan.",
+                    "error"
+                );
+            }
         }
     }
 
+    // =========================================================
+    // KIRIM DATA KE SERVER
+    // =========================================================
     async function sendDataToServer(payload) {
-        if (!API_URL || API_URL === "") {
-            // Simulasi Update Lokal jika API tidak ada
-            simulateLocalUpdate(payload);
-            return true; 
+        if (!API_URL) {
+            return simulateLocalUpdate(payload);
         }
-
-        const btn = document.getElementById('btn-submit-tx') || null;
-        if(btn) { btn.innerText = "Menyimpan..."; btn.disabled = true; }
 
         try {
             const response = await fetch(API_URL, {
                 method: "POST",
-                headers: { "Content-Type": "text/plain;charset=utf-8" }, // Apps script butuh text/plain untuk CORS simple
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8"
+                },
                 body: JSON.stringify(payload)
             });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
             const res = await response.json();
-            
-            if(btn) { btn.innerText = "Simpan Data"; btn.disabled = false; }
-            
-            if(res.status === "success") {
-                fetchData(); // Refresh data
+
+            if (res.status === "success") {
                 return true;
-            } else {
-                showMessage("Gagal", res.message || "Gagal menyimpan data.", "error");
-                return false;
             }
+
+            throw new Error(res.message || "Server menolak data.");
         } catch (e) {
-            if(btn) { btn.innerText = "Simpan Data"; btn.disabled = false; }
-            showMessage("Error Jaringan", "Periksa koneksi internet Anda.", "error");
+            console.error("sendDataToServer:", e);
+            showMessage(
+                "Gagal Menyimpan",
+                "Data belum berhasil disimpan ke server. Data tetap disimpan di perangkat ini agar tidak hilang saat refresh.",
+                "error"
+            );
             return false;
         }
     }
 
-    // Fungsi klik "Bayar" di tabel Anggota (Memunculkan Modal)
+    // =========================================================
+    // PEMBAYARAN KAS
+    // =========================================================
     function bayarKas(id, nama, nominal) {
-        pendingPayment = { id, nama, nominal };
-        document.getElementById('confirm-title').innerText = "Konfirmasi Pembayaran";
-        document.getElementById('confirm-desc').innerText = `Catat pembayaran kas untuk ${nama} sebesar ${formatRp(nominal)} di bulan ${selectedMonth}?`;
-        showModalBox('modal-confirm');
+        pendingPayment = {
+            id,
+            nama,
+            nominal: Number(nominal) || 0
+        };
+
+        document.getElementById("confirm-title").innerText = "Konfirmasi Pembayaran";
+        document.getElementById("confirm-desc").innerText =
+            `Catat pembayaran kas untuk ${nama} sebesar ${formatRp(nominal)} di bulan ${selectedMonth}?`;
+
+        showModalBox("modal-confirm");
     }
 
-    // Eksekusi API Pembayaran Kas ketika tombol "Ya, Bayar" di klik
     async function executeBayarKas() {
         if (!pendingPayment) return;
-        const { id, nama, nominal } = pendingPayment;
-        
-        closeModal(); // Tutup modal konfirmasi terlebih dahulu
 
-        // --- OPTIMISTIC UI UPDATE (Pembaruan Tampilan Langsung) ---
-        // Kita ubah tampilan langsung seolah-olah sukses agar tidak ada delay visual
-        const tempId = "P_temp_" + Date.now();
-        const txTempId = "TX_temp_" + Date.now();
-        
-        // Tambahkan ke data lokal sementara
-        appData.pembayaran.push({
-            id: tempId,
-            bulan: selectedMonth,
+        const { id, nama, nominal } = pendingPayment;
+        const bulan = selectedMonth;
+        const tanggal = getTodayDate();
+
+        closeModal();
+
+        // Cegah klik ganda / pembayaran dobel.
+        const alreadyPaid = appData.pembayaran.some(p =>
+            safeId(p.bulan) === safeId(bulan) &&
+            safeId(p.id_anggota) === safeId(id)
+        );
+
+        if (alreadyPaid) {
+            pendingPayment = null;
+            processData();
+            showMessage("Sudah Lunas", `${nama} sudah tercatat membayar pada ${bulan}.`, "info");
+            return;
+        }
+
+        const payment = {
+            id: "P_" + Date.now(),
+            bulan,
             id_anggota: id,
-            nama: nama,
-            nominal: nominal,
-            tanggal: getTodayDate()
-        });
-        
-        appData.transaksi.push({
-            id: txTempId,
-            tanggal: getTodayDate(),
-            bulan: selectedMonth,
+            nama,
+            nominal,
+            tanggal
+        };
+
+        const transaction = {
+            id: "TX_" + Date.now(),
+            tanggal,
+            bulan,
             jenis: "PEMASUKAN",
             kategori: "Kas Anggota",
             keterangan: "Pembayaran kas: " + nama,
-            nominal: nominal
-        });
+            nominal
+        };
 
-        // Hitung ulang dan render ulang layar secara instan
+        // OPTIMISTIC UPDATE: langsung tampil.
+        appData.pembayaran.push(payment);
+        appData.transaksi.push(transaction);
         processData();
 
-        // Siapkan payload untuk dikirim ke Google Sheets (berjalan di background)
         const payload = {
             pin: savedPin,
             action: "bayar_kas",
             data: {
-                bulan: selectedMonth,
+                bulan,
                 id_anggota: id,
-                nama: nama,
-                nominal: nominal,
-                tanggal: getTodayDate()
+                nama,
+                nominal,
+                tanggal
             }
         };
 
-        // Kirim ke server
         const success = await sendDataToServer(payload);
-        
-        if(success) {
-            showMessage("Berhasil", "Pembayaran kas berhasil dicatat.", "success");
-            // Server akan otomatis memanggil fetchData() setelah sukses di dalam sendDataToServer
+
+        if (success) {
+            // Simpan permanen di browser.
+            // Flag _localSaved membuatnya ikut digabung lagi setelah refresh.
+            saveSuccessfulPaymentLocally(payment, transaction);
+
+            processData();
+
+            showMessage(
+                "Berhasil",
+                `Pembayaran ${nama} sebesar ${formatRp(nominal)} berhasil dicatat.`,
+                "success"
+            );
+
+            // Jangan langsung fetchData().
+            // GET langsung setelah POST kadang membaca data lama dari Apps Script
+            // dan dapat membuat tampilan seolah-olah pembayaran hilang.
         } else {
-            // Jika ternyata gagal (misal koneksi putus), kita harus me-revert/membatalkan Optimistic Update
-            appData.pembayaran = appData.pembayaran.filter(p => p.id !== tempId);
-            appData.transaksi = appData.transaksi.filter(t => t.id !== txTempId);
-            processData(); // Kembalikan tampilan seperti semula
-            // showMessage("Gagal", "Gagal menyimpan, tampilan dibatalkan.", "error"); // (Pesan error sudah ditangani di sendDataToServer)
+            // Server gagal. Tetap pertahankan data lokal agar tidak hilang.
+            payment._localSaved = true;
+            transaction._localSaved = true;
+            writeLocalData();
+            processData();
         }
-        
-        pendingPayment = null; // Reset data
+
+        pendingPayment = null;
     }
 
-    // Modal Transaksi (Pemasukan/Pengeluaran)
+    // =========================================================
+    // TRANSAKSI MANUAL
+    // =========================================================
     function openTxModal(jenis) {
-        document.getElementById('tx-jenis').value = jenis;
-        document.getElementById('tx-tanggal').value = getTodayDate();
-        document.getElementById('tx-kategori').value = '';
-        document.getElementById('tx-nominal').value = '';
-        
-        const title = jenis === 'PEMASUKAN' ? 'Tambah Pemasukan' : 'Tambah Pengeluaran';
-        document.getElementById('tx-modal-title').innerText = title;
-        
-        const btn = document.getElementById('btn-submit-tx');
-        btn.className = jenis === 'PEMASUKAN' 
+        document.getElementById("tx-jenis").value = jenis;
+        document.getElementById("tx-tanggal").value = getTodayDate();
+        document.getElementById("tx-kategori").value = "";
+        document.getElementById("tx-nominal").value = "";
+
+        document.getElementById("tx-modal-title").innerText =
+            jenis === "PEMASUKAN" ? "Tambah Pemasukan" : "Tambah Pengeluaran";
+
+        const btn = document.getElementById("btn-submit-tx");
+
+        btn.className = jenis === "PEMASUKAN"
             ? "w-full py-2.5 bg-green-600 text-white rounded-xl font-semibold text-sm hover:bg-green-700 shadow-md mt-2"
             : "w-full py-2.5 bg-red-600 text-white rounded-xl font-semibold text-sm hover:bg-red-700 shadow-md mt-2";
 
-        showModalBox('modal-tx');
+        showModalBox("modal-tx");
     }
 
     async function submitTransaction() {
-        const jenis = document.getElementById('tx-jenis').value;
-        const tanggal = document.getElementById('tx-tanggal').value;
-        const kategori = document.getElementById('tx-kategori').value;
-        const nominal = document.getElementById('tx-nominal').value;
+        const jenis = document.getElementById("tx-jenis").value;
+        const tanggal = document.getElementById("tx-tanggal").value;
+        const kategori = document.getElementById("tx-kategori").value.trim();
+        const nominal = Number(document.getElementById("tx-nominal").value);
 
-        if(!tanggal || !kategori || !nominal) {
+        if (!tanggal || !kategori || !nominal || nominal <= 0) {
             showMessage("Peringatan", "Harap isi semua data dengan benar.", "error");
             return;
         }
@@ -803,56 +1052,131 @@
             pin: savedPin,
             action: "tambah_transaksi",
             data: {
-                tanggal: tanggal,
+                tanggal,
                 bulan: selectedMonth,
-                jenis: jenis,
-                kategori: kategori,
+                jenis,
+                kategori,
                 keterangan: "Input Manual",
-                nominal: parseInt(nominal)
+                nominal
             }
         };
 
+        const btn = document.getElementById("btn-submit-tx");
+        btn.disabled = true;
+        btn.innerText = "Menyimpan...";
+
         const success = await sendDataToServer(payload);
-        if(success) {
+
+        btn.disabled = false;
+        btn.innerText = "Simpan Data";
+
+        if (success) {
+            const tx = {
+                id: "TX_" + Date.now(),
+                ...payload.data,
+                _localSaved: true
+            };
+
+            appData.transaksi.push(tx);
+            writeLocalData();
+            processData();
+
             closeModal();
             showMessage("Berhasil", "Data transaksi berhasil disimpan.", "success");
+        } else {
+            // Tetap simpan lokal.
+            const tx = {
+                id: "TX_LOCAL_" + Date.now(),
+                ...payload.data,
+                _localSaved: true
+            };
+
+            appData.transaksi.push(tx);
+            writeLocalData();
+            processData();
         }
     }
 
-    // --- SIMULASI LOKAL (JIKA API BELUM TERPASANG) ---
+    // =========================================================
+    // SIMULASI LOKAL
+    // =========================================================
     function simulateLocalUpdate(payload) {
-        if(payload.pin !== "123456") {
-            showMessage("Gagal", "PIN Salah", "error");
-            return;
+        if (payload.pin !== "123456") {
+            showMessage("Gagal", "PIN lokal demo adalah 123456.", "error");
+            return false;
         }
-        
-        if(payload.action === "bayar_kas") {
-            appData.pembayaran.push({ id: "P_temp", ...payload.data });
+
+        if (payload.action === "bayar_kas") {
+            const p = {
+                id: "P_LOCAL_" + Date.now(),
+                ...payload.data,
+                _localSaved: true
+            };
+
+            const t = {
+                id: "TX_LOCAL_" + Date.now(),
+                tanggal: payload.data.tanggal,
+                bulan: payload.data.bulan,
+                jenis: "PEMASUKAN",
+                kategori: "Kas Anggota",
+                keterangan: "Pembayaran kas: " + payload.data.nama,
+                nominal: payload.data.nominal,
+                _localSaved: true
+            };
+
+            appData.pembayaran.push(p);
+            appData.transaksi.push(t);
+            writeLocalData();
+            processData();
+            return true;
+        }
+
+        if (payload.action === "tambah_transaksi") {
             appData.transaksi.push({
-                id: "TX_temp", 
-                tanggal: payload.data.tanggal, 
-                bulan: payload.data.bulan, 
-                jenis: "PEMASUKAN", 
-                kategori: "Kas Anggota", 
-                keterangan: "Pembayaran kas: " + payload.data.nama, 
-                nominal: payload.data.nominal
+                id: "TX_LOCAL_" + Date.now(),
+                ...payload.data,
+                _localSaved: true
             });
+
+            writeLocalData();
+            processData();
+            return true;
         }
-        
-        if(payload.action === "tambah_transaksi") {
-            appData.transaksi.push({ id: "TX_temp2", ...payload.data });
-        }
-        
-        processData();
-        closeModal();
+
+        return false;
     }
 
-    // --- INISIALISASI SAAT HALAMAN DIMUAT ---
+    // =========================================================
+    // TOMBOL REFRESH MANUAL
+    // =========================================================
+    async function manualRefresh() {
+        await fetchData(true);
+    }
+
+    // =========================================================
+    // INISIALISASI
+    // =========================================================
     window.onload = () => {
-        document.querySelectorAll('.current-month-label').forEach(el => el.innerText = selectedMonth);
-        fetchData();
-        // Coba refresh otomatis tiap 30 detik
-        setInterval(fetchData, 30000); 
+        document.querySelectorAll(".current-month-label").forEach(el => {
+            el.innerText = selectedMonth;
+        });
+
+        initSelectors();
+
+        // Render cache lokal lebih dulu supaya data tidak terasa hilang.
+        const local = readLocalData();
+
+        if (local.pembayaran.length || local.transaksi.length) {
+            appData.pembayaran = local.pembayaran;
+            appData.transaksi = local.transaksi;
+        }
+
+        fetchData(false);
+
+        // Auto refresh setiap 30 detik.
+        // Karena fetchData sekarang melakukan MERGE,
+        // pembayaran lokal tidak akan hilang.
+        setInterval(() => fetchData(false), 30000);
     };
 </script>
 </body>
