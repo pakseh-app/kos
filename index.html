@@ -458,8 +458,9 @@
             runningBalance = saldoAkhirBulan;
         }
 
-        // Ambil data pembayaran anggota bulan ini
-        currentData.paidMembers = appData.pembayaran.filter(p => p.bulan === selectedMonth).map(p => p.id_anggota.toString());
+        // Ambil data pembayaran anggota bulan ini dan gunakan Set untuk memastikan unik (jaga-jaga ada duplikasi data)
+        const uniquePaidMembers = new Set(appData.pembayaran.filter(p => p.bulan === selectedMonth).map(p => p.id_anggota.toString()));
+        currentData.paidMembers = Array.from(uniquePaidMembers);
 
         updateDashboardUI();
         renderTableAnggota();
@@ -474,8 +475,12 @@
         
         // Progress Pembayaran
         const total = appData.anggota.length;
-        const paid = currentData.paidMembers.length;
-        const percentage = total === 0 ? 0 : Math.round((paid / total) * 100);
+        // Pastikan jumlah yang sudah bayar tidak melebihi total anggota
+        const paid = Math.min(currentData.paidMembers.length, total); 
+        let percentage = total === 0 ? 0 : Math.round((paid / total) * 100);
+        
+        // Pastikan persentase maksimal 100%
+        if (percentage > 100) percentage = 100;
         
         document.getElementById('dash-paid-count').innerText = paid;
         document.getElementById('dash-total-member').innerText = total;
@@ -707,6 +712,35 @@
         
         closeModal(); // Tutup modal konfirmasi terlebih dahulu
 
+        // --- OPTIMISTIC UI UPDATE (Pembaruan Tampilan Langsung) ---
+        // Kita ubah tampilan langsung seolah-olah sukses agar tidak ada delay visual
+        const tempId = "P_temp_" + Date.now();
+        const txTempId = "TX_temp_" + Date.now();
+        
+        // Tambahkan ke data lokal sementara
+        appData.pembayaran.push({
+            id: tempId,
+            bulan: selectedMonth,
+            id_anggota: id,
+            nama: nama,
+            nominal: nominal,
+            tanggal: getTodayDate()
+        });
+        
+        appData.transaksi.push({
+            id: txTempId,
+            tanggal: getTodayDate(),
+            bulan: selectedMonth,
+            jenis: "PEMASUKAN",
+            kategori: "Kas Anggota",
+            keterangan: "Pembayaran kas: " + nama,
+            nominal: nominal
+        });
+
+        // Hitung ulang dan render ulang layar secara instan
+        processData();
+
+        // Siapkan payload untuk dikirim ke Google Sheets (berjalan di background)
         const payload = {
             pin: savedPin,
             action: "bayar_kas",
@@ -719,8 +753,19 @@
             }
         };
 
+        // Kirim ke server
         const success = await sendDataToServer(payload);
-        if(success) showMessage("Berhasil", "Pembayaran kas berhasil dicatat.", "success");
+        
+        if(success) {
+            showMessage("Berhasil", "Pembayaran kas berhasil dicatat.", "success");
+            // Server akan otomatis memanggil fetchData() setelah sukses di dalam sendDataToServer
+        } else {
+            // Jika ternyata gagal (misal koneksi putus), kita harus me-revert/membatalkan Optimistic Update
+            appData.pembayaran = appData.pembayaran.filter(p => p.id !== tempId);
+            appData.transaksi = appData.transaksi.filter(t => t.id !== txTempId);
+            processData(); // Kembalikan tampilan seperti semula
+            // showMessage("Gagal", "Gagal menyimpan, tampilan dibatalkan.", "error"); // (Pesan error sudah ditangani di sendDataToServer)
+        }
         
         pendingPayment = null; // Reset data
     }
