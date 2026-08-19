@@ -74,7 +74,243 @@ main{padding:18px 15px}.title{font-size:25px;font-weight:850}.sub{color:var(--m)
 <div id="toast" class="toast"></div>
 
 <script>
+const API_URL="<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#2563eb">
+<title>Catatan Kas</title>
+<style>
+:root{--b:#2563eb;--g:#16a34a;--r:#dc2626;--bg:#f5f7fb;--card:#fff;--t:#182236;--m:#7b8495;--l:#e7ebf2}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+button,input,select{font:inherit}button{cursor:pointer}.app{max-width:540px;min-height:100vh;margin:auto;background:#f8fafc;padding-bottom:90px}
+header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--l);padding:14px 16px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:10px}.brand{font-size:22px;font-weight:850}
+.status{font-size:12px;color:var(--m);margin-top:4px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:5px}.dot.wait{background:#f59e0b}.dot.off{background:#ef4444}
+.month{border:0;background:#f1f3f7;border-radius:12px;padding:10px;font-weight:750;color:#263044}.lock{width:43px;height:43px;border:0;border-radius:50%;background:#eaf1ff;font-size:20px}
+main{padding:18px 15px}.title{font-size:25px;font-weight:850}.sub{color:var(--m);font-size:14px;margin-top:4px}
+.card{background:#fff;border:1px solid var(--l);border-radius:20px;box-shadow:0 8px 28px rgba(20,30,50,.06)}
+.hero{margin-top:15px;padding:20px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:0}.hero small{opacity:.9}.hero strong{display:block;font-size:34px;margin:5px 0 12px}
+.bar{height:9px;background:#dce8ff;border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:#fff;width:0}.barrow{display:flex;justify-content:space-between;margin-top:8px;font-size:12px;opacity:.9}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:13px}.stat{padding:16px}.stat small{color:var(--m)}.stat b{display:block;font-size:20px;margin-top:6px}.green{color:var(--g)}.red{color:var(--r)}.blue{color:var(--b)}
+.flow{margin-top:13px;padding:17px}.flow h2{font-size:18px;margin:0 0 7px}.row{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--l);font-size:13px}.row:last-child{border:0}
+.section{margin-top:22px;display:flex;justify-content:space-between;align-items:center}.section h2{font-size:18px;margin:0}.add{border:0;background:var(--b);color:#fff;border-radius:11px;padding:9px 12px;font-weight:800}
+.search{margin:12px 0;width:100%;padding:11px;border:1px solid var(--l);border-radius:12px;outline:0}
+.table{overflow:auto;margin-top:12px}.table table{width:100%;min-width:440px;border-collapse:collapse}.table th,.table td{padding:13px 10px;border-bottom:1px solid var(--l);font-size:13px;text-align:left}.table th{font-size:12px;background:#f8fafc}.right{text-align:right!important}
+.pay{border:0;background:var(--b);color:white;border-radius:10px;padding:8px 12px;font-weight:800}.edit{border:0;background:#eef2ff;color:var(--b);border-radius:9px;padding:7px 9px;font-weight:900;margin-left:5px}.check{font-size:21px;color:#22b968;font-weight:900}
+.empty{text-align:center;color:var(--m);padding:28px}.tx{margin-top:9px;padding:13px;display:flex;justify-content:space-between;gap:10px}.tx small{display:block;color:var(--m);margin-top:4px}.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(540px,100%);height:76px;background:#fff;border-top:1px solid var(--l);display:grid;grid-template-columns:repeat(3,1fr);z-index:20}.nav button{border:0;background:transparent;color:#9ca5b5;font-weight:750;font-size:11px}.nav button.active{color:var(--b)}.nav span{display:block;font-size:22px;margin-bottom:3px}
+.modalbg{display:none;position:fixed;inset:0;background:#0008;z-index:100;align-items:center;justify-content:center;padding:18px}.modalbg.show{display:flex}.modal{background:#fff;width:min(430px,100%);border-radius:20px;padding:20px}.modal h3{margin:0;font-size:19px}.modal p{color:var(--m);font-size:13px;line-height:1.5}.form{display:grid;gap:9px;margin-top:15px}.form label{font-size:12px;font-weight:800}.form input,.form select{width:100%;padding:12px;border:1px solid var(--l);border-radius:11px;outline:0}.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}.primary,.secondary{border:0;border-radius:11px;padding:12px;font-weight:800}.primary{background:var(--b);color:#fff}.secondary{background:#edf0f5;color:#334155}
+.toast{position:fixed;z-index:200;bottom:92px;left:50%;transform:translate(-50%,20px);opacity:0;background:#182236;color:#fff;padding:11px 15px;border-radius:12px;font-size:13px;font-weight:750;transition:.2s;max-width:90%;text-align:center}.toast.show{opacity:1;transform:translate(-50%,0)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+ <div class="head">
+  <div><div class="brand">Catatan Kas</div><div class="status"><span id="dot" class="dot"></span><span id="status">Online</span> • <button onclick="manualRefresh()" style="border:0;background:none;color:#667085;font-weight:700">↻ Refresh</button></div></div>
+  <div style="display:flex;gap:8px"><select id="month" class="month" onchange="setMonth()"></select><button id="lock" class="lock" onclick="openPin()">🔒</button></div>
+ </div>
+</header>
+
+<main>
+<section id="home" class="page">
+ <div class="title">Ringkasan Kas</div><div class="sub">Periode <b id="mHome"></b></div>
+ <div class="card hero"><small>Saldo kas saat ini</small><strong id="saldo">Rp 0</strong><div class="bar"><i id="bar"></i></div><div class="barrow"><span id="paidCount">0 dari 0 anggota sudah bayar</span><b id="pct">0%</b></div></div>
+ <div class="grid"><div class="card stat"><small>Pemasukan</small><b id="income" class="green">Rp 0</b></div><div class="card stat"><small>Pengeluaran</small><b id="expense" class="red">Rp 0</b></div></div>
+ <div class="card flow"><h2>Arus Kas</h2><div class="row"><span>Saldo awal</span><b id="start">Rp 0</b></div><div class="row green"><span>+ Pemasukan</span><b id="flowIn">Rp 0</b></div><div class="row red"><span>− Pengeluaran</span><b id="flowOut">Rp 0</b></div><div class="row"><b>Saldo akhir</b><b id="end" class="blue">Rp 0</b></div></div>
+</section>
+
+<section id="members" class="page hidden">
+ <div class="title">Anggota</div><div class="sub">Catatan kas bulanan • <b id="mMembers"></b></div>
+ <div class="section"><h2>Daftar Anggota</h2><button class="add" onclick="openMember()">✎ Tambah</button></div>
+ <input id="search" class="search" placeholder="Cari nama..." oninput="renderMembers()">
+ <div class="card table"><table><thead><tr><th>No.</th><th>Nama Anggota</th><th class="right">Setoran</th><th class="right">Aksi</th></tr></thead><tbody id="membersBody"></tbody></table></div>
+ <div class="card flow"><div class="row"><span>Nominal setoran</span><b id="nominal">Rp 0 / orang</b></div><div class="row"><span>Total kas bulan ini</span><b id="monthTotal" class="blue">Rp 0</b></div></div>
+</section>
+
+<section id="transactions" class="page hidden">
+ <div class="title">Transaksi</div><div class="sub">Pemasukan dan pengeluaran • <b id="mTx"></b></div>
+ <div class="section"><h2>Riwayat</h2><div id="txButtons" class="hidden"><button class="add" onclick="openTx('PEMASUKAN')">＋ Masuk</button> <button class="add" style="background:#dc2626" onclick="openTx('PENGELUARAN')">＋ Keluar</button></div></div>
+ <div id="txList"></div>
+</section>
+</main>
+
+<div class="nav"><button class="active" data-p="home" onclick="go('home')"><span>⌂</span>Beranda</button><button data-p="members" onclick="go('members')"><span>♟</span>Anggota</button><button data-p="transactions" onclick="go('transactions')"><span>⇄</span>Transaksi</button></div>
+</div>
+
+<div id="modalbg" class="modalbg" onclick="if(event.target===this)closeModal()">
+ <div id="pinModal" class="modal hidden"><h3>🔐 Buka Mode Edit</h3><p>Masukkan PIN admin untuk membayar atau mengubah anggota/transaksi.</p><div class="form"><label>PIN</label><input id="pin" type="password" inputmode="numeric" maxlength="6"></div><div class="actions"><button class="secondary" onclick="closeModal()">Batal</button><button class="primary" onclick="unlock()">Buka</button></div></div>
+ <div id="payModal" class="modal hidden"><h3>Konfirmasi Pembayaran</h3><p id="payText"></p><div class="actions"><button class="secondary" onclick="closeModal()">Batal</button><button class="primary" onclick="pay()">Ya, Bayar</button></div></div>
+ <div id="memberModal" class="modal hidden"><h3 id="memberTitle">Tambah Anggota</h3><div class="form"><label>Nama</label><input id="memberName" placeholder="Nama anggota"><label>Nominal setoran</label><input id="memberAmount" type="number" inputmode="numeric" value="10000"></div><div class="actions"><button class="secondary" onclick="closeModal()">Batal</button><button class="primary" onclick="saveMember()">Simpan</button></div></div>
+ <div id="txModal" class="modal hidden"><h3 id="txTitle">Transaksi</h3><div class="form"><label>Tanggal</label><input id="txDate" type="date"><label>Kategori</label><input id="txCat"><label>Keterangan</label><input id="txNote"><label>Nominal</label><input id="txAmount" type="number" inputmode="numeric"></div><div class="actions"><button class="secondary" onclick="closeModal()">Batal</button><button class="primary" onclick="saveTx()">Simpan</button></div></div>
+ <div id="infoModal" class="modal hidden"><h3 id="infoTitle">Info</h3><p id="infoText"></p><div class="actions" style="grid-template-columns:1fr"><button class="primary" onclick="closeModal()">OK</button></div></div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
 const API_URL="https://script.google.com/macros/s/AKfycbzP9J8-0diXNKPEQHrVA2S62CRDTeoWrUQtaN1erVUKT6iky7N1ovx6IgLpmKlHL5oo/exec";
+const PIN_DEFAULT="123456";
+const months=[];
+const names=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+for(let y=2026;y<=2031;y++)for(let m=(y===2026?7:0);m<12;m++)months.push(names[m]+" "+y);
+
+let db={anggota:[],transaksi:[],pembayaran:[]};
+let currentMonth="Agustus 2026";
+let pin="";
+let admin=false;
+let pending=null;
+let editingMemberId=null;
+let txType="PEMASUKAN";
+let lastServerSync=0;
+
+const $=id=>document.getElementById(id);
+const rupiah=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",minimumFractionDigits:0}).format(Number(n)||0);
+const esc=s=>String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function toast(s){const e=$("toast");e.textContent=s;e.classList.add("show");clearTimeout(window.tt);window.tt=setTimeout(()=>e.classList.remove("show"),2600)}
+function modal(id){$("modalbg").classList.add("show");document.querySelectorAll(".modal").forEach(x=>x.classList.add("hidden"));$(id).classList.remove("hidden")}
+function closeModal(){$("modalbg").classList.remove("show")}
+function setStatus(s,t){$("dot").className="dot "+(s==="wait"?"wait":s==="off"?"off":"");$("status").textContent=t}
+function cache(){try{localStorage.setItem("kas-final",JSON.stringify(db))}catch(e){}}
+function loadCache(){try{const x=JSON.parse(localStorage.getItem("kas-final")||"null");if(x&&Array.isArray(x.anggota))db=x}catch(e){}}
+
+function init(){
+ $("month").innerHTML=months.map(x=>`<option>${esc(x)}</option>`).join("");$("month").value=currentMonth;
+ loadCache();render();sync(false);
+}
+function setMonth(){currentMonth=$("month").value;render()}
+function go(p){document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$(p).classList.remove("hidden");document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x.dataset.p===p))}
+function paidSet(){return new Set(db.pembayaran.filter(x=>String(x.bulan)===currentMonth).map(x=>String(x.id_anggota)))}
+function totals(){
+ let balance=0,result={start:0,income:0,out:0,end:0,tx:[]};
+ for(const m of months){
+  const tx=db.transaksi.filter(x=>String(x.bulan)===m);
+  const inc=tx.filter(x=>x.jenis==="PEMASUKAN").reduce((a,x)=>a+(+x.nominal||0),0);
+  const out=tx.filter(x=>x.jenis==="PENGELUARAN").reduce((a,x)=>a+(+x.nominal||0),0);
+  if(m===currentMonth)result={start:balance,income:inc,out, end:balance+inc-out,tx};
+  balance+=inc-out;
+ }
+ return result;
+}
+function render(){
+ $("mHome").textContent=currentMonth;$("mMembers").textContent=currentMonth;$("mTx").textContent=currentMonth;
+ const t=totals(),p=paidSet(),n=db.anggota.length,c=p.size,pc=n?Math.round(c/n*100):0;
+ $("saldo").textContent=rupiah(t.end);$("income").textContent=rupiah(t.income);$("expense").textContent=rupiah(t.out);$("start").textContent=rupiah(t.start);$("flowIn").textContent=rupiah(t.income);$("flowOut").textContent=rupiah(t.out);$("end").textContent=rupiah(t.end);$("paidCount").textContent=`${c} dari ${n} anggota sudah bayar`;$("pct").textContent=pc+"%";$("bar").style.width=pc+"%";
+ $("lock").textContent=admin?"🔓":"🔒";renderMembers();renderTx();$("txButtons").classList.toggle("hidden",!admin);
+}
+function renderMembers(){
+ const q=($("search").value||"").toLowerCase(),p=paidSet(),body=$("membersBody");
+ const list=db.anggota.filter(x=>String(x.nama).toLowerCase().includes(q));
+ body.innerHTML=list.map((m,i)=>{
+  const id=String(m.id),yes=p.has(id);
+  const action=yes?`<span class="check">✓</span>`:(admin?`<button class="pay" onclick='askPay(${JSON.stringify(id)},${JSON.stringify(m.nama)},${+m.nominal||0})'>Bayar</button>`:"");
+  const edit=admin?`<button class="edit" onclick='editMember(${JSON.stringify(id)})'>✎</button>`:"";
+  return `<tr><td>${i+1}</td><td><b>${esc(m.nama)}</b></td><td class="right">${yes?rupiah(m.nominal):'<span style="color:#a5acb8;font-style:italic">Belum</span>'}</td><td class="right">${action}${edit}</td></tr>`
+ }).join("")||`<tr><td colspan="4" class="empty">Tidak ada anggota.</td></tr>`;
+ $("nominal").textContent=db.anggota[0]?rupiah(db.anggota[0].nominal)+" / orang":"Rp 0 / orang";
+ $("monthTotal").textContent=rupiah([...p].reduce((s,id)=>s+(+(db.anggota.find(x=>String(x.id)===id)?.nominal)||0),0));
+}
+function renderTx(){
+ const box=$("txList"),tx=totals().tx;
+ box.innerHTML=tx.length?[...tx].reverse().map(x=>`<div class="card tx"><div><b>${esc(x.kategori)}</b><small>${esc(x.tanggal)} • ${esc(x.keterangan||"-")}</small></div><b class="${x.jenis==="PEMASUKAN"?"green":"red"}">${x.jenis==="PEMASUKAN"?"+":"−"} ${rupiah(x.nominal)}</b></div>`).join(""):`<div class="card empty">Belum ada transaksi.</div>`;
+}
+
+function openPin(){$("pin").value="";modal("pinModal");setTimeout(()=>$("pin").focus(),100)}
+function unlock(){if($("pin").value!==PIN_DEFAULT){info("PIN salah","PIN admin tidak sesuai.");return}pin=$("pin").value;admin=true;closeModal();render();toast("Mode edit aktif")}
+function askPay(id,nama,nominal){if(!admin){openPin();return}pending={id,nama,nominal};$("payText").textContent=`Catat pembayaran ${nama} sebesar ${rupiah(nominal)} untuk ${currentMonth}?`;modal("payModal")}
+
+async function post(action,data){
+ const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},cache:"no-store",body:JSON.stringify({pin,action,data})});
+ if(!r.ok)throw new Error("HTTP "+r.status);
+ const j=await r.json();if(j.status!=="success")throw new Error(j.message||"Gagal menyimpan");
+ return j;
+}
+
+/*
+ FINAL PAYMENT FLOW:
+ - Do NOT call GET after a successful payment.
+ - The POST response is authoritative for this operation.
+ - The UI is updated from the server response only.
+ - A later manual Refresh can fetch the Sheet again.
+*/
+async function pay(){
+ if(!pending)return;
+ const p=pending;pending=null;closeModal();toast("Menyimpan...");
+ try{
+  const j=await post("bayar_kas",{bulan:currentMonth,id_anggota:p.id,nama:p.nama,nominal:p.nominal,tanggal:today()});
+  if(j.data&&Array.isArray(j.data.anggota)){
+   db=j.data;cache();lastServerSync=Date.now();
+  }else{
+   // Defensive fallback: update only this payment locally.
+   const exists=db.pembayaran.some(x=>String(x.bulan)===currentMonth&&String(x.id_anggota)===String(p.id));
+   if(!exists){
+    db.pembayaran.push({id:"local-"+Date.now(),bulan:currentMonth,id_anggota:p.id,nama:p.nama,nominal:p.nominal,tanggal:today()});
+    db.transaksi.push({id:"localtx-"+Date.now(),tanggal:today(),bulan:currentMonth,jenis:"PEMASUKAN",kategori:"Kas Anggota",keterangan:"Pembayaran kas: "+p.nama,nominal:p.nominal});
+    cache();
+   }
+  }
+  render();
+  setStatus("ok","Online • Tersimpan");
+  toast(j.alreadyPaid?"Pembayaran sudah tercatat":"Pembayaran berhasil disimpan ✓");
+ }catch(e){setStatus("off","Gagal menyimpan");info("Pembayaran gagal",e.message)}
+}
+
+async function manualRefresh(){
+ setStatus("wait","Mengambil data...");
+ try{
+  const r=await fetch(API_URL+"?refresh="+Date.now()+"&r="+Math.random(),{cache:"no-store"});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const j=await r.json();
+  if(j.status!=="success")throw new Error(j.message||"Gagal mengambil data");
+  if(j.data&&Array.isArray(j.data.anggota)){db=j.data;cache();lastServerSync=Date.now();render()}
+  setStatus("ok","Online • Tersinkron");toast("Data terbaru dimuat");
+ }catch(e){setStatus("off","Gagal sinkron");info("Refresh gagal","Tidak bisa mengambil data dari Google Sheet.")}
+}
+
+async function sync(silent){
+ if(!silent)setStatus("wait","Memuat...");
+ try{
+  const r=await fetch(API_URL+"?initial="+Date.now()+"&r="+Math.random(),{cache:"no-store"});
+  if(!r.ok)throw new Error();
+  const j=await r.json();
+  if(j.status==="success"&&j.data&&Array.isArray(j.data.anggota)){db=j.data;cache();lastServerSync=Date.now();render()}
+  setStatus("ok","Online • Tersinkron");
+ }catch(e){setStatus("off","Offline");render()}
+}
+
+/* Members */
+function openMember(id=null){
+ if(!admin){openPin();return}
+ editingMemberId=id;
+ if(id===null){$("memberTitle").textContent="Tambah Anggota";$("memberName").value="";$("memberAmount").value=10000}
+ else{const m=db.anggota.find(x=>String(x.id)===String(id));$("memberTitle").textContent="Edit Anggota";$("memberName").value=m?.nama||"";$("memberAmount").value=m?.nominal||10000}
+ modal("memberModal");
+}
+function editMember(id){openMember(id)}
+async function saveMember(){
+ const nama=$("memberName").value.trim(),nominal=+$("memberAmount").value;
+ if(!nama||nominal<=0){info("Data belum lengkap","Isi nama dan nominal.");return}
+ try{
+  toast("Menyimpan anggota...");
+  const j=await post(editingMemberId===null?"tambah_anggota":"edit_anggota",{id:editingMemberId,nama,nominal});
+  if(j.data){db=j.data;cache()}closeModal();render();toast("Data anggota tersimpan ✓");
+ }catch(e){info("Gagal",""+e.message)}
+}
+
+/* Transactions */
+function openTx(type){if(!admin){openPin();return}txType=type;$("txTitle").textContent=type==="PEMASUKAN"?"Tambah Pemasukan":"Tambah Pengeluaran";$("txDate").value=today();$("txCat").value="";$("txNote").value="";$("txAmount").value="";modal("txModal")}
+async function saveTx(){
+ const tanggal=$("txDate").value,kategori=$("txCat").value.trim(),keterangan=$("txNote").value.trim(),nominal=+$("txAmount").value;
+ if(!tanggal||!kategori||nominal<=0){info("Data belum lengkap","Isi semua data transaksi.");return}
+ try{const j=await post("tambah_transaksi",{tanggal,bulan:currentMonth,jenis:txType,kategori,keterangan,nominal});if(j.data)db=j.data;cache();closeModal();render();toast("Transaksi tersimpan ✓")}catch(e){info("Gagal",""+e.message)}
+}
+function info(t,m){$("infoTitle").textContent=t;$("infoText").textContent=m;modal("infoModal")}
+window.addEventListener("load",init);
+</script>
+</body>
+</html>";
 const PIN_DEFAULT="123456";
 const months=[];
 const names=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
