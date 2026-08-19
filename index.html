@@ -308,10 +308,20 @@
     </div>
 
     <script>
+        // Konfigurasi API Google Sheets
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzxx7HREtkClT9wN0C9OiS3KYhmre2vTuHxfb5I3y_ST-zVV6NpbAeRS9pu-0lg3oAmQw/exec";
+
         // State Aplikasi
         let currentTab = 'beranda';
         let isUnlocked = false;
         const SECRET_PASSWORD = "kos123"; // Password sederhana untuk demo
+
+        // Data Cache untuk menyimpan data dari Google Sheets
+        let appData = {
+            anggota: [],
+            transaksi: [],
+            ringkasan: { pemasukan: 0, pengeluaran: 0, saldo: 0 }
+        };
 
         // Fungsi Navigasi Tab
         function switchTab(tabId) {
@@ -352,6 +362,9 @@
         window.onload = () => {
             const berandaBtn = document.getElementById('nav-beranda');
             berandaBtn.querySelector('.active-indicator').classList.remove('hidden');
+            
+            // Otomatis ambil data dari Google Sheets saat web dibuka
+            refreshData();
         };
 
         // Fungsi Fitur Kunci/Buka Akses Edit
@@ -392,16 +405,29 @@
             }
             
             // Jika terbuka, simulasikan sukses
-            showModal('Fitur Aktif', 'Fitur ini siap dihubungkan dengan database (Google Sheets/Firebase).', 'success');
             return true;
         }
         
         function refreshData() {
-            // Simulasi loading
-            showModal('Memuat...', 'Mengambil data terbaru...', 'info');
-            setTimeout(() => {
-                closeModal();
-            }, 800);
+            showModal('Memuat...', 'Mengambil data dari Google Sheets...', 'info');
+            
+            // Proses mengambil data (GET request) ke URL Apps Script
+            fetch(APPS_SCRIPT_URL)
+                .then(response => response.json())
+                .then(result => {
+                    if(result.status === 'success') {
+                        appData = result.data;
+                        console.log("Data berhasil diambil:", appData);
+                        // TODO: Selanjutnya kita akan buat fungsi untuk memasukkan data ini ke elemen HTML
+                        closeModal();
+                    } else {
+                        showModal('Error', result.message, 'warning');
+                    }
+                })
+                .catch(error => {
+                    console.error("Fetch error:", error);
+                    showModal('Error Koneksi', 'Gagal terhubung ke database. Pastikan internet Anda aktif.', 'warning');
+                });
         }
 
         // ==========================================
