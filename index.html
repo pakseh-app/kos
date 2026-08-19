@@ -4,544 +4,323 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catatan Kas</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* gray-50 */
-            -webkit-tap-highlight-color: transparent;
-        }
-        /* Hide scrollbar for clean UI but keep functionality */
-        ::-webkit-scrollbar {
-            width: 0px;
-            background: transparent;
-        }
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        /* Custom modal styles to replace alert/prompt */
-        #customModal {
-            display: none;
-        }
-        #customModal.active {
-            display: flex;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; padding-bottom: 80px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .nav-item { color: #94a3b8; transition: all 0.2s; }
+        .nav-item.active { color: #2563eb; font-weight: 600; }
     </style>
 </head>
-<body class="text-slate-800 pb-20 relative min-h-screen">
+<body class="text-slate-800">
 
-    <header class="bg-white px-5 py-4 shadow-sm flex justify-between items-center sticky top-0 z-40">
+    <!-- Header -->
+    <header class="bg-white px-5 py-4 flex justify-between items-center shadow-sm sticky top-0 z-50">
         <div>
-            <h1 class="text-xl font-bold text-slate-900 leading-tight">Catatan Kas</h1>
-            <div class="flex items-center text-xs mt-1 space-x-1 text-slate-500">
-                <span class="flex items-center text-green-500">
-                    <i class="fa-solid fa-circle text-[8px] mr-1"></i> Online
-                </span>
-                <span>• Tersimpan •</span>
-                <button onclick="refreshData()" class="hover:text-slate-700 transition"><i class="fa-solid fa-rotate-right mr-1"></i>Refresh</button>
+            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Catatan Kas</h1>
+            <div class="flex items-center text-xs text-slate-500 mt-1">
+                <span class="text-emerald-500 text-[10px] mr-1"><i class="bi bi-circle-fill"></i></span> Online • Tersimpan • 
+                <button onclick="fetchData()" class="ml-1 hover:text-slate-800"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
             </div>
         </div>
-        
-        <div class="flex items-center space-x-3">
-            <select class="bg-slate-100 text-slate-700 text-sm font-medium py-1.5 px-3 rounded-lg border-0 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none pr-8 relative">
+        <div class="flex items-center gap-3">
+            <select class="bg-slate-100 border-none text-sm font-medium py-2 px-3 rounded-lg focus:ring-0 cursor-pointer">
                 <option>Agustus 2026</option>
-                <option>Juli 2026</option>
             </select>
-            <!-- Dropdown arrow overlay for select -->
-            <div class="pointer-events-none absolute right-[4.5rem] top-1/2 transform -translate-y-1/2 text-slate-500 text-xs">
-                <i class="fa-solid fa-chevron-down"></i>
-            </div>
-            
-            <button id="lockBtn" onclick="toggleLock()" class="bg-amber-100 text-amber-600 hover:bg-amber-200 h-9 w-9 rounded-full flex items-center justify-center transition shadow-sm border border-amber-200">
-                <i id="lockIcon" class="fa-solid fa-lock"></i>
+            <button id="btnGembok" onclick="toggleGembok()" class="bg-amber-100 text-amber-600 hover:bg-amber-200 p-2 rounded-full w-10 h-10 flex items-center justify-center transition-colors">
+                <i class="bi bi-lock-fill text-lg"></i>
             </button>
         </div>
     </header>
 
-    <main class="p-5 max-w-2xl mx-auto">
+    <main class="p-5">
         <!-- TAB BERANDA -->
         <section id="tab-beranda" class="tab-content active">
-            <div class="mb-5">
-                <h2 class="text-2xl font-bold text-slate-900">Ringkasan Kas</h2>
-                <p class="text-sm text-slate-500 mt-1">Periode <span class="font-semibold text-slate-700">Agustus 2026</span></p>
-            </div>
+            <h2 class="text-2xl font-bold text-slate-900">Ringkasan Kas</h2>
+            <p class="text-slate-500 text-sm mb-4">Periode <span class="font-semibold text-slate-700">Agustus 2026</span></p>
 
-            <!-- Kartu Saldo Utama -->
-            <div class="bg-blue-500 rounded-2xl p-5 text-white shadow-md shadow-blue-200 mb-5 relative overflow-hidden">
-                <!-- Background decoration -->
-                <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10"></div>
-                
-                <p class="text-sm text-blue-100 font-medium">Saldo kas saat ini</p>
-                <h3 class="text-4xl font-bold mt-1 tracking-tight">Rp 0</h3>
-                
-                <div class="mt-6">
-                    <div class="w-full bg-blue-400/50 rounded-full h-1.5 mb-2">
-                        <div class="bg-white h-1.5 rounded-full" style="width: 0%"></div>
-                    </div>
-                    <div class="flex justify-between text-xs font-medium text-blue-100">
-                        <span>0 dari 8 anggota sudah bayar</span>
-                        <span>0%</span>
-                    </div>
+            <div class="bg-blue-600 text-white p-5 rounded-2xl shadow-lg shadow-blue-200 mb-5">
+                <p class="text-blue-100 text-sm mb-1">Saldo kas saat ini</p>
+                <h3 class="text-4xl font-bold mb-4" id="ui-saldo">Rp 0</h3>
+                <div class="w-full bg-blue-400/50 rounded-full h-1.5 mb-2">
+                    <div class="bg-white h-1.5 rounded-full" style="width: 0%" id="ui-progress"></div>
+                </div>
+                <div class="flex justify-between text-xs text-blue-100">
+                    <span id="ui-anggota-bayar">0 dari 8 anggota sudah bayar</span>
+                    <span id="ui-persentase">0%</span>
                 </div>
             </div>
 
-            <!-- Kartu Pemasukan & Pengeluaran -->
             <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                    <p class="text-xs text-slate-500 font-medium mb-1">Pemasukan</p>
-                    <p class="text-lg font-bold text-green-600">Rp 0</p>
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-slate-400 text-xs mb-1">Pemasukan</p>
+                    <p class="text-emerald-500 font-bold text-lg" id="ui-masuk">Rp 0</p>
                 </div>
-                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                    <p class="text-xs text-slate-500 font-medium mb-1">Pengeluaran</p>
-                    <p class="text-lg font-bold text-red-600">Rp 0</p>
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-slate-400 text-xs mb-1">Pengeluaran</p>
+                    <p class="text-red-500 font-bold text-lg" id="ui-keluar">Rp 0</p>
                 </div>
             </div>
 
-            <!-- Arus Kas -->
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <h3 class="font-bold text-slate-800 mb-4 text-lg">Arus Kas</h3>
-                
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center text-sm">
-                        <span class="text-slate-600">Saldo awal</span>
-                        <span class="font-bold text-slate-800">Rp 0</span>
-                    </div>
-                    
-                    <div class="flex justify-between items-center text-sm">
-                        <span class="text-green-600">+ Pemasukan</span>
-                        <span class="font-bold text-green-600">Rp 0</span>
-                    </div>
-                    
-                    <div class="flex justify-between items-center text-sm border-b border-slate-100 pb-4">
-                        <span class="text-red-500">– Pengeluaran</span>
-                        <span class="font-bold text-red-500">Rp 0</span>
-                    </div>
-                    
-                    <div class="flex justify-between items-center text-sm pt-1">
-                        <span class="font-bold text-slate-800">Saldo akhir</span>
-                        <span class="font-bold text-blue-600">Rp 0</span>
-                    </div>
+            <h3 class="font-bold text-lg mb-3">Arus Kas</h3>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-1">
+                <div class="flex justify-between p-3 border-b border-slate-50 text-sm">
+                    <span class="text-slate-600">Saldo awal</span>
+                    <span class="font-bold">Rp 0</span>
+                </div>
+                <div class="flex justify-between p-3 border-b border-slate-50 text-sm">
+                    <span class="text-emerald-500">+ Pemasukan</span>
+                    <span class="font-bold text-emerald-500" id="ui-arus-masuk">Rp 0</span>
+                </div>
+                <div class="flex justify-between p-3 border-b border-slate-50 text-sm">
+                    <span class="text-red-500">- Pengeluaran</span>
+                    <span class="font-bold text-red-500" id="ui-arus-keluar">Rp 0</span>
+                </div>
+                <div class="flex justify-between p-4 bg-slate-50 rounded-b-xl text-sm mt-1">
+                    <span class="font-bold text-slate-800">Saldo akhir</span>
+                    <span class="font-bold text-blue-600" id="ui-arus-saldo">Rp 0</span>
                 </div>
             </div>
         </section>
 
         <!-- TAB ANGGOTA -->
         <section id="tab-anggota" class="tab-content">
-            <div class="mb-5">
-                <h2 class="text-2xl font-bold text-slate-900">Anggota</h2>
-                <p class="text-sm text-slate-500 mt-1">Catatan kas bulanan • <span class="font-semibold text-slate-700">Agustus 2026</span></p>
-            </div>
+            <h2 class="text-2xl font-bold text-slate-900">Anggota</h2>
+            <p class="text-slate-500 text-sm mb-4">Catatan kas bulanan • <span class="font-semibold text-slate-700">Agustus 2026</span></p>
 
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-slate-800 text-lg">Daftar Anggota</h3>
-                <button onclick="checkAccess()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-lg shadow-sm transition flex items-center">
-                    <i class="fa-solid fa-pen mr-2 text-xs"></i> Tambah
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-lg">Daftar Anggota</h3>
+                <button onclick="aksiBerdasarAkses('tambah_anggota')" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-full transition-colors shadow-sm">
+                    <i class="bi bi-pencil-fill text-xs mr-1"></i> Tambah
                 </button>
             </div>
 
-            <div class="relative mb-5">
-                <input type="text" placeholder="Cari nama..." class="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm">
+            <div class="relative mb-4">
+                <input type="text" placeholder="Cari nama..." class="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm">
             </div>
 
-            <!-- Tabel Anggota -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead class="text-xs text-slate-600 font-semibold bg-slate-50 border-b border-slate-100">
-                            <tr>
-                                <th class="px-4 py-3 w-12">No.</th>
-                                <th class="px-4 py-3">Nama Anggota</th>
-                                <th class="px-4 py-3 text-center">Setoran</th>
-                                <th class="px-4 py-3 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            <!-- Data Mockup -->
-                            <tr class="hover:bg-slate-50/50">
-                                <td class="px-4 py-3 text-slate-500">1</td>
-                                <td class="px-4 py-3 font-semibold text-slate-800">Wulan</td>
-                                <td class="px-4 py-3 text-center text-slate-400 italic">Belum</td>
-                                <td class="px-4 py-3 text-right flex justify-end space-x-2">
-                                    <button onclick="checkAccess()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg shadow-sm transition">Bayar</button>
-                                    <button onclick="checkAccess()" class="text-blue-500 hover:bg-blue-100 p-1.5 rounded-lg transition"><i class="fa-solid fa-pen text-xs"></i></button>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-slate-50/50">
-                                <td class="px-4 py-3 text-slate-500">2</td>
-                                <td class="px-4 py-3 font-semibold text-slate-800">Titis</td>
-                                <td class="px-4 py-3 text-center text-slate-400 italic">Belum</td>
-                                <td class="px-4 py-3 text-right flex justify-end space-x-2">
-                                    <button onclick="checkAccess()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg shadow-sm transition">Bayar</button>
-                                    <button onclick="checkAccess()" class="text-blue-500 hover:bg-blue-100 p-1.5 rounded-lg transition"><i class="fa-solid fa-pen text-xs"></i></button>
-                                </td>
-                            </tr>
-                             <tr class="hover:bg-slate-50/50">
-                                <td class="px-4 py-3 text-slate-500">3</td>
-                                <td class="px-4 py-3 font-semibold text-slate-800">Anisa</td>
-                                <td class="px-4 py-3 text-center text-slate-400 italic">Belum</td>
-                                <td class="px-4 py-3 text-right flex justify-end space-x-2">
-                                    <button onclick="checkAccess()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg shadow-sm transition">Bayar</button>
-                                    <button onclick="checkAccess()" class="text-blue-500 hover:bg-blue-100 p-1.5 rounded-lg transition"><i class="fa-solid fa-pen text-xs"></i></button>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-slate-50/50">
-                                <td class="px-4 py-3 text-slate-500">4</td>
-                                <td class="px-4 py-3 font-semibold text-slate-800">Nanda</td>
-                                <td class="px-4 py-3 text-center text-slate-400 italic">Belum</td>
-                                <td class="px-4 py-3 text-right flex justify-end space-x-2">
-                                    <button onclick="checkAccess()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg shadow-sm transition">Bayar</button>
-                                    <button onclick="checkAccess()" class="text-blue-500 hover:bg-blue-100 p-1.5 rounded-lg transition"><i class="fa-solid fa-pen text-xs"></i></button>
-                                </td>
-                            </tr>
-                             <tr class="hover:bg-slate-50/50">
-                                <td class="px-4 py-3 text-slate-500">5</td>
-                                <td class="px-4 py-3 font-semibold text-slate-800">Tari</td>
-                                <td class="px-4 py-3 text-center text-slate-400 italic">Belum</td>
-                                <td class="px-4 py-3 text-right flex justify-end space-x-2">
-                                    <button onclick="checkAccess()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 px-3 rounded-lg shadow-sm transition">Bayar</button>
-                                    <button onclick="checkAccess()" class="text-blue-500 hover:bg-blue-100 p-1.5 rounded-lg transition"><i class="fa-solid fa-pen text-xs"></i></button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-medium">
+                        <tr>
+                            <th class="py-3 px-4 w-12 text-center">No.</th>
+                            <th class="py-3 px-2">Nama Anggota</th>
+                            <th class="py-3 px-2 text-center">Setoran</th>
+                            <th class="py-3 px-4 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabel-anggota" class="divide-y divide-slate-100">
+                        <!-- Data dummy sementara -->
+                        <tr>
+                            <td class="py-3 px-4 text-center text-slate-500">1</td>
+                            <td class="py-3 px-2 font-bold text-slate-800">Memuat data...</td>
+                            <td class="py-3 px-2 text-center text-slate-400 italic">...</td>
+                            <td class="py-3 px-4 text-center">...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
-            <!-- Info Nominal -->
-            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 text-sm">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-slate-600">Nominal setoran</span>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 text-sm">
+                <div class="flex justify-between mb-2">
+                    <span class="text-slate-500">Nominal setoran</span>
                     <span class="font-bold text-slate-800">Rp 10.000 / orang</span>
                 </div>
-                 <div class="flex justify-between items-center pt-2 border-t border-slate-100">
-                    <span class="text-slate-600">Total kas bulan ini</span>
-                    <span class="font-bold text-blue-600">Rp 0</span>
+                <div class="w-full h-px bg-slate-100 my-3"></div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Total kas bulan ini</span>
+                    <span class="font-bold text-blue-600" id="ui-total-bulan">Rp 0</span>
                 </div>
             </div>
         </section>
 
         <!-- TAB TRANSAKSI -->
         <section id="tab-transaksi" class="tab-content">
-            <div class="mb-5">
-                <h2 class="text-2xl font-bold text-slate-900">Transaksi</h2>
-                <p class="text-sm text-slate-500 mt-1">Pemasukan dan pengeluaran • <span class="font-semibold text-slate-700">Agustus 2026</span></p>
-            </div>
+            <h2 class="text-2xl font-bold text-slate-900">Transaksi</h2>
+            <p class="text-slate-500 text-sm mb-4">Pemasukan dan pengeluaran • <span class="font-semibold text-slate-700">Agustus 2026</span></p>
 
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-slate-800 text-lg">Riwayat</h3>
-                <div class="flex space-x-2">
-                    <button onclick="checkAccess()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-xl shadow-sm transition flex items-center">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-lg">Riwayat</h3>
+                <div class="flex gap-2">
+                    <button onclick="aksiBerdasarAkses('tambah_masuk')" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded-full transition-colors shadow-sm">
                         + Masuk
                     </button>
-                    <button onclick="checkAccess()" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1.5 px-4 rounded-xl shadow-sm transition flex items-center">
+                    <button onclick="aksiBerdasarAkses('tambah_keluar')" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1.5 px-4 rounded-full transition-colors shadow-sm">
                         + Keluar
                     </button>
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 text-center flex flex-col items-center justify-center min-h-[200px]">
-                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                    <i class="fa-solid fa-receipt text-slate-300 text-2xl"></i>
-                </div>
-                <p class="text-slate-400 font-medium">Belum ada transaksi.</p>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 flex items-center justify-center text-slate-400 text-sm" id="wadah-riwayat">
+                Memuat transaksi...
             </div>
         </section>
     </main>
 
-    <!-- NAVIGASI BAWAH -->
-    <nav class="fixed bottom-0 w-full bg-white border-t border-slate-200 flex justify-around items-center pb-safe pt-2 z-40 px-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <button onclick="switchTab('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center justify-center w-20 py-2 text-blue-600 relative">
-            <!-- Active indicator border top -->
-            <div class="absolute top-[-9px] w-full h-[2px] bg-blue-600 hidden active-indicator"></div>
-            <i class="fa-solid fa-house-chimney text-xl mb-1"></i>
-            <span class="text-[10px] font-semibold">Beranda</span>
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 w-full bg-white border-t border-slate-200 flex justify-around items-center py-2 pb-safe px-2 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <button onclick="switchTab('tab-beranda', this)" class="nav-item active flex flex-col items-center w-20 py-1 rounded-xl hover:bg-slate-50">
+            <i class="bi bi-house-door text-xl mb-1"></i>
+            <span class="text-[10px]">Beranda</span>
         </button>
-        
-        <button onclick="switchTab('anggota')" id="nav-anggota" class="nav-btn flex flex-col items-center justify-center w-20 py-2 text-slate-400 hover:text-slate-600 transition relative">
-            <div class="absolute top-[-9px] w-full h-[2px] bg-blue-600 hidden active-indicator"></div>
-            <i class="fa-solid fa-users text-xl mb-1"></i>
-            <span class="text-[10px] font-medium">Anggota</span>
+        <button onclick="switchTab('tab-anggota', this)" class="nav-item flex flex-col items-center w-20 py-1 rounded-xl hover:bg-slate-50">
+            <i class="bi bi-person text-xl mb-1"></i>
+            <span class="text-[10px]">Anggota</span>
         </button>
-        
-        <button onclick="switchTab('transaksi')" id="nav-transaksi" class="nav-btn flex flex-col items-center justify-center w-20 py-2 text-slate-400 hover:text-slate-600 transition relative">
-            <div class="absolute top-[-9px] w-full h-[2px] bg-blue-600 hidden active-indicator"></div>
-            <i class="fa-solid fa-arrow-right-arrow-left text-xl mb-1"></i>
-            <span class="text-[10px] font-medium">Transaksi</span>
+        <button onclick="switchTab('tab-transaksi', this)" class="nav-item flex flex-col items-center w-20 py-1 rounded-xl hover:bg-slate-50">
+            <i class="bi bi-arrow-left-right text-xl mb-1"></i>
+            <span class="text-[10px]">Transaksi</span>
         </button>
     </nav>
 
-    <!-- Custom Modal untuk Notifikasi / Input Password (menggantikan alert/prompt) -->
-    <div id="customModal" class="fixed inset-0 bg-slate-900/40 z-50 items-center justify-center backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-300" id="modalContent">
-            
-            <!-- Icon area -->
-            <div id="modalIconArea" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-                <i id="modalIcon" class="fa-solid fa-info text-blue-600 text-xl"></i>
-            </div>
-            
-            <h3 id="modalTitle" class="text-lg font-bold text-center text-slate-900 mb-2">Pemberitahuan</h3>
-            <p id="modalMessage" class="text-sm text-center text-slate-500 mb-5">Pesan di sini.</p>
-            
-            <!-- Input area (hidden by default) -->
-            <div id="modalInputArea" class="hidden mb-5">
-                <input type="password" id="modalInput" placeholder="Masukkan password" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-center">
-                <p id="modalError" class="text-xs text-red-500 text-center mt-2 hidden">Password salah.</p>
-            </div>
-            
-            <!-- Buttons -->
-            <div class="flex space-x-3">
-                <button id="modalCancelBtn" onclick="closeModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 rounded-xl text-sm transition hidden">Batal</button>
-                <button id="modalConfirmBtn" onclick="closeModal()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm">OK</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- SCRIPT LOGIKA APLIKASI -->
     <script>
-        // Konfigurasi API Google Sheets
+        // URL GOOGLE APPS SCRIPT ANDA
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzxx7HREtkClT9wN0C9OiS3KYhmre2vTuHxfb5I3y_ST-zVV6NpbAeRS9pu-0lg3oAmQw/exec";
-
-        // State Aplikasi
-        let currentTab = 'beranda';
-        let isUnlocked = false;
-        const SECRET_PASSWORD = "kos123"; // Password sederhana untuk demo
-
-        // Data Cache untuk menyimpan data dari Google Sheets
-        let appData = {
-            anggota: [],
-            transaksi: [],
-            ringkasan: { pemasukan: 0, pengeluaran: 0, saldo: 0 }
-        };
-
-        // Fungsi Navigasi Tab
-        function switchTab(tabId) {
-            // Sembunyikan semua konten tab
-            document.querySelectorAll('.tab-content').forEach(el => {
-                el.classList.remove('active');
-            });
-            
-            // Tampilkan tab yang dipilih
-            document.getElementById(`tab-${tabId}`).classList.add('active');
-            
-            // Reset styling tombol navigasi
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('text-blue-600');
-                btn.classList.add('text-slate-400');
-                btn.querySelector('span').classList.remove('font-semibold');
-                btn.querySelector('span').classList.add('font-medium');
-                btn.querySelector('.active-indicator').classList.add('hidden');
-            });
-            
-            // Set active styling pada tombol yang diklik
-            const activeBtn = document.getElementById(`nav-${tabId}`);
-            activeBtn.classList.remove('text-slate-400');
-            activeBtn.classList.add('text-blue-600');
-            activeBtn.querySelector('span').classList.remove('font-medium');
-            activeBtn.querySelector('span').classList.add('font-semibold');
-            activeBtn.querySelector('.active-indicator').classList.remove('hidden');
-            
-            // Pastikan indikator tab beranda terlihat saat pertama dimuat
-            if(tabId === 'beranda' && currentTab !== 'beranda') {
-                // do nothing, styling handled above
-            }
-            
-            currentTab = tabId;
-        }
-
-        // Inisialisasi tampilan tab pertama (Beranda)
-        window.onload = () => {
-            const berandaBtn = document.getElementById('nav-beranda');
-            berandaBtn.querySelector('.active-indicator').classList.remove('hidden');
-            
-            // Otomatis ambil data dari Google Sheets saat web dibuka
-            refreshData();
-        };
-
-        // Fungsi Fitur Kunci/Buka Akses Edit
-        function toggleLock() {
-            if (isUnlocked) {
-                // Jika sedang terbuka, langsung kunci
-                isUnlocked = false;
-                updateLockUI();
-                showModal('Terkunci', 'Akses edit data telah dikunci kembali.', 'info');
-            } else {
-                // Jika sedang terkunci, minta password
-                showModal('Buka Kunci', 'Masukkan password untuk mengubah data.', 'password', handlePasswordSubmit);
-            }
-        }
-
-        function updateLockUI() {
-            const btn = document.getElementById('lockBtn');
-            const icon = document.getElementById('lockIcon');
-            
-            if (isUnlocked) {
-                btn.classList.remove('bg-amber-100', 'text-amber-600', 'border-amber-200');
-                btn.classList.add('bg-green-100', 'text-green-600', 'border-green-200');
-                icon.classList.remove('fa-lock');
-                icon.classList.add('fa-lock-open');
-            } else {
-                btn.classList.remove('bg-green-100', 'text-green-600', 'border-green-200');
-                btn.classList.add('bg-amber-100', 'text-amber-600', 'border-amber-200');
-                icon.classList.remove('fa-lock-open');
-                icon.classList.add('fa-lock');
-            }
-        }
-
-        // Pengecekan Akses sebelum melakukan aksi (Tambah/Edit/Hapus)
-        function checkAccess() {
-            if (!isUnlocked) {
-                showModal('Akses Ditolak', 'Silakan buka gembok di pojok kanan atas terlebih dahulu untuk mengubah data.', 'warning');
-                return false;
-            }
-            
-            // Jika terbuka, simulasikan sukses
-            return true;
-        }
         
-        function refreshData() {
-            showModal('Memuat...', 'Mengambil data dari Google Sheets...', 'info');
+        let isUnlocked = false;
+        let passwordSession = "";
+
+        // Fungsi Ganti Tab
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             
-            // Proses mengambil data (GET request) ke URL Apps Script
-            fetch(APPS_SCRIPT_URL)
-                .then(response => response.json())
-                .then(result => {
-                    if(result.status === 'success') {
-                        appData = result.data;
-                        console.log("Data berhasil diambil:", appData);
-                        // TODO: Selanjutnya kita akan buat fungsi untuk memasukkan data ini ke elemen HTML
-                        closeModal();
-                    } else {
-                        showModal('Error', result.message, 'warning');
-                    }
-                })
-                .catch(error => {
-                    console.error("Fetch error:", error);
-                    showModal('Error Koneksi', 'Gagal terhubung ke database. Pastikan internet Anda aktif.', 'warning');
-                });
+            document.getElementById(tabId).classList.add('active');
+            el.classList.add('active');
         }
 
-        // ==========================================
-        // Sistem Modal Kustom (Pengganti alert/prompt)
-        // ==========================================
-        let currentConfirmCallback = null;
-
-        function showModal(title, message, type = 'info', confirmCallback = null) {
-            const modal = document.getElementById('customModal');
-            const content = document.getElementById('modalContent');
-            const titleEl = document.getElementById('modalTitle');
-            const msgEl = document.getElementById('modalMessage');
-            const iconArea = document.getElementById('modalIconArea');
-            const icon = document.getElementById('modalIcon');
-            
-            const inputArea = document.getElementById('modalInputArea');
-            const inputEl = document.getElementById('modalInput');
-            const errorEl = document.getElementById('modalError');
-            
-            const cancelBtn = document.getElementById('modalCancelBtn');
-            const confirmBtn = document.getElementById('modalConfirmBtn');
-            
-            // Reset
-            inputEl.value = '';
-            errorEl.classList.add('hidden');
-            currentConfirmCallback = confirmCallback;
-            
-            // Set text
-            titleEl.textContent = title;
-            msgEl.textContent = message;
-            
-            // Configure type
-            inputArea.classList.add('hidden');
-            cancelBtn.classList.add('hidden');
-            
-            iconArea.className = 'mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4';
-            
-            if (type === 'info') {
-                iconArea.classList.add('bg-blue-100');
-                icon.className = 'fa-solid fa-circle-info text-blue-600 text-xl';
-                confirmBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm';
-            } else if (type === 'success') {
-                iconArea.classList.add('bg-green-100');
-                icon.className = 'fa-solid fa-check text-green-600 text-xl';
-                confirmBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm';
-            } else if (type === 'warning') {
-                iconArea.classList.add('bg-amber-100');
-                icon.className = 'fa-solid fa-triangle-exclamation text-amber-600 text-xl';
-                confirmBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm';
-            } else if (type === 'password') {
-                iconArea.classList.add('bg-slate-100');
-                icon.className = 'fa-solid fa-key text-slate-600 text-xl';
-                inputArea.classList.remove('hidden');
-                cancelBtn.classList.remove('hidden');
-                confirmBtn.className = 'flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm';
-                
-                // Set click for specific password submit
-                confirmBtn.onclick = (e) => {
-                    e.preventDefault();
-                    if(currentConfirmCallback) {
-                        currentConfirmCallback(inputEl.value);
-                    }
-                };
-            }
-
-            // Jika bukan tipe password, pastikan tombol OK menutup modal
-            if (type !== 'password') {
-                confirmBtn.onclick = closeModal;
-            }
-
-            // Tampilkan modal dengan animasi
-            modal.style.display = 'flex';
-            // Trigger reflow
-            void modal.offsetWidth;
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            content.classList.remove('scale-95');
-            content.classList.add('scale-100');
-            
-            if(type === 'password') {
-                setTimeout(() => inputEl.focus(), 100);
-            }
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('customModal');
-            const content = document.getElementById('modalContent');
-            
-            modal.classList.add('opacity-0');
-            content.classList.remove('scale-100');
-            content.classList.add('scale-95');
-            
-            setTimeout(() => {
-                modal.style.display = 'none';
-                modal.classList.add('pointer-events-none');
-            }, 300);
-        }
-
-        // Handler untuk submit password
-        function handlePasswordSubmit(inputVal) {
-            if (inputVal === SECRET_PASSWORD) {
-                isUnlocked = true;
-                updateLockUI();
-                closeModal();
-                setTimeout(() => {
-                    showModal('Berhasil', 'Akses edit data dibuka.', 'success');
-                }, 350);
+        // Fungsi Buka/Tutup Gembok
+        function toggleGembok() {
+            if (isUnlocked) {
+                // Kunci kembali
+                isUnlocked = false;
+                passwordSession = "";
+                const btn = document.getElementById('btnGembok');
+                btn.className = "bg-amber-100 text-amber-600 hover:bg-amber-200 p-2 rounded-full w-10 h-10 flex items-center justify-center transition-colors";
+                btn.innerHTML = '<i class="bi bi-lock-fill text-lg"></i>';
+                alert("Aplikasi terkunci. Anda tidak bisa mengedit data.");
             } else {
-                document.getElementById('modalError').classList.remove('hidden');
-                // Shake effect on error (optional enhancement)
-                const content = document.getElementById('modalContent');
-                content.classList.add('animate-pulse');
-                setTimeout(() => content.classList.remove('animate-pulse'), 500);
+                // Buka Kunci
+                const pwd = prompt("Masukkan Password (contoh: kos123):");
+                if (pwd) {
+                    passwordSession = pwd;
+                    isUnlocked = true;
+                    const btn = document.getElementById('btnGembok');
+                    btn.className = "bg-emerald-100 text-emerald-600 hover:bg-emerald-200 p-2 rounded-full w-10 h-10 flex items-center justify-center transition-colors";
+                    btn.innerHTML = '<i class="bi bi-unlock-fill text-lg"></i>';
+                    alert("Akses Edit Dibuka!");
+                }
             }
         }
+
+        // Fungsi Pengecekan Akses (Yang error di video sebelumnya sudah diperbaiki di sini)
+        function aksiBerdasarAkses(jenisAksi, indeks = null, nama = null) {
+            if (!isUnlocked) {
+                alert("Silakan klik ikon gembok di kanan atas dan masukkan password untuk mengubah data.");
+                return;
+            }
+
+            // Jika gembok terbuka, jalankan aksi:
+            if (jenisAksi === 'bayar') {
+                const konfirmasi = confirm(`Tandai ${nama} sudah membayar (Lunas)?`);
+                if(konfirmasi) {
+                    // Disini nanti ditaruh fungsi POST ke Google Script
+                    alert(`Simulasi: ${nama} berhasil ditandai Lunas!`);
+                    fetchData(); // refresh data 
+                }
+            } else if (jenisAksi === 'tambah_anggota') {
+                alert("Simulasi: Form tambah anggota dibuka.");
+            } else if (jenisAksi === 'tambah_masuk') {
+                alert("Simulasi: Form tambah pemasukan dibuka.");
+            } else if (jenisAksi === 'tambah_keluar') {
+                alert("Simulasi: Form tambah pengeluaran dibuka.");
+            }
+        }
+
+        // Format Uang Rupiah
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(angka);
+        }
+
+        // Ambil Data dari Google Sheets
+        function fetchData() {
+            console.log("Mengambil data...");
+            fetch(APPS_SCRIPT_URL)
+            .then(response => response.json())
+            .then(res => {
+                if(res.status === "success") {
+                    renderAnggota(res.data.anggota);
+                    renderRingkasan(res.data.ringkasan, res.data.anggota);
+                } else {
+                    console.error("Error dari server:", res.message);
+                }
+            })
+            .catch(err => console.error("Gagal koneksi:", err));
+        }
+
+        // Tampilkan Data Anggota ke Tabel
+        function renderAnggota(dataAnggota) {
+            const tbody = document.getElementById('tabel-anggota');
+            tbody.innerHTML = ""; 
+            
+            if(dataAnggota.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500">Belum ada anggota.</td></tr>`;
+                return;
+            }
+
+            dataAnggota.forEach((baris, index) => {
+                const nama = baris[1] || "-";
+                const status = baris[2] || "Belum";
+                const isLunas = status.toLowerCase() === "lunas";
+
+                const badgeStatus = isLunas 
+                    ? `<span class="text-emerald-500 font-medium italic">Lunas</span>` 
+                    : `<span class="text-slate-400 italic">Belum</span>`;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-center text-slate-500">${index + 1}</td>
+                    <td class="py-3 px-2 font-bold text-slate-800">${nama}</td>
+                    <td class="py-3 px-2 text-center">${badgeStatus}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="aksiBerdasarAkses('bayar', ${index}, '${nama}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 px-3 rounded-full transition-colors mr-1">Bayar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Tampilkan Angka-angka di Beranda
+        function renderRingkasan(ringkasan, anggota) {
+            document.getElementById('ui-saldo').innerText = formatRupiah(ringkasan.saldo);
+            document.getElementById('ui-masuk').innerText = formatRupiah(ringkasan.pemasukan);
+            document.getElementById('ui-keluar').innerText = formatRupiah(ringkasan.pengeluaran);
+            
+            document.getElementById('ui-arus-masuk').innerText = formatRupiah(ringkasan.pemasukan);
+            document.getElementById('ui-arus-keluar').innerText = formatRupiah(ringkasan.pengeluaran);
+            document.getElementById('ui-arus-saldo').innerText = formatRupiah(ringkasan.saldo);
+            document.getElementById('ui-total-bulan').innerText = formatRupiah(ringkasan.pemasukan);
+
+            // Hitung progress bar (Berapa orang yang sudah lunas)
+            const totalAnggota = anggota.length;
+            const lunasCount = anggota.filter(a => (a[2] || "").toLowerCase() === "lunas").length;
+            const persentase = totalAnggota > 0 ? Math.round((lunasCount / totalAnggota) * 100) : 0;
+
+            document.getElementById('ui-anggota-bayar').innerText = `${lunasCount} dari ${totalAnggota} anggota sudah bayar`;
+            document.getElementById('ui-persentase').innerText = `${persentase}%`;
+            document.getElementById('ui-progress').style.width = `${persentase}%`;
+        }
+
+        // Jalankan fetch saat web pertama dibuka
+        window.onload = fetchData;
     </script>
 </body>
 </html>
