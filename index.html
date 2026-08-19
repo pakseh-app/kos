@@ -249,7 +249,7 @@
         // ==========================================
         // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT DI SINI
         // ==========================================
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxwM24im2Cl-OrXAlCAHRbY6iPoPolu66l_Kl8K1Y6TkWlwid9dtEG_DmbTa07J0oIsJQ/exec"; 
+        const SCRIPT_URL = "URL_WEB_APP_ANDA_DISINI"; 
 
         // App State
         let members = [];
@@ -376,9 +376,18 @@
             transactions.forEach(t => {
                 const amount = Number(t.amount);
                 let tMonthYear = "";
-                // Jika tanggal ada, ambil YYYY-MM
-                if (t.date) tMonthYear = t.date.substring(0, 7); 
-                else if (t.timestamp) tMonthYear = t.timestamp.substring(0, 7);
+                
+                // Normalisasi string tanggal dari Google Sheets
+                let dateToUse = t.date || t.timestamp || "";
+                if (dateToUse) {
+                    let dStr = String(dateToUse);
+                    if (dStr.includes('T')) {
+                        const d = new Date(dStr);
+                        tMonthYear = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    } else {
+                        tMonthYear = dStr.substring(0, 7); 
+                    }
+                }
 
                 if (t.type === 'income') {
                     totalIncome += amount;
@@ -500,7 +509,9 @@
         window.togglePayment = (memberId, memberName, isPaid, existingTransId) => {
             const selectedMonth = document.getElementById('select-month').value;
             const selectedYear = document.getElementById('select-year').value;
-            const monthYearFor = `${selectedYear}-${selectedMonth}`;
+            
+            // Tambahkan prefix 'Bln-' agar Google Sheet menganggap ini Teks, bukan Tanggal
+            const monthYearFor = `Bln-${selectedYear}-${selectedMonth}`;
             
             executeWithPin(async () => {
                 try {
@@ -511,7 +522,7 @@
                         await apiCall('addTransaction', {
                             type: 'income', category: 'iuran', amount: 10000,
                             memberId: memberId, monthYearFor: monthYearFor,
-                            description: `Iuran ${memberName} (${monthYearFor})`,
+                            description: `Iuran ${memberName} (${selectedMonth}/${selectedYear})`,
                             date: new Date().toISOString().split('T')[0]
                         });
                         showToast(`Iuran berhasil dicatat`);
@@ -525,7 +536,7 @@
             const list = document.getElementById('dues-list');
             const selectedMonth = document.getElementById('select-month').value;
             const selectedYear = document.getElementById('select-year').value;
-            const monthYearFor = `${selectedYear}-${selectedMonth}`;
+            const targetBulan = `${selectedYear}-${selectedMonth}`;
 
             if (members.length === 0) {
                 list.innerHTML = `<tr><td colspan="2" class="text-center py-6 text-gray-500">Belum ada anggota.</td></tr>`;
@@ -533,10 +544,23 @@
             }
 
             list.innerHTML = members.map(member => {
-                const payment = transactions.find(t => 
-                    t.type === 'income' && t.category === 'iuran' && 
-                    t.memberId === member.id && t.monthYearFor === monthYearFor
-                );
+                const payment = transactions.find(t => {
+                    let recordMonthYear = String(t.monthYearFor);
+                    
+                    // 1. Jika Google Sheets sudah mengubahnya jadi Date object (ISO format misal 2026-08-01T...)
+                    if (recordMonthYear.includes('T')) {
+                        const dateObj = new Date(recordMonthYear);
+                        recordMonthYear = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+                    }
+                    
+                    // 2. Hapus prefix Bln- (untuk mencocokkan format data baru)
+                    recordMonthYear = recordMonthYear.replace('Bln-', '');
+
+                    return t.type === 'income' && 
+                           t.category === 'iuran' && 
+                           String(t.memberId) === String(member.id) && 
+                           recordMonthYear === targetBulan;
+                });
 
                 const isPaid = !!payment;
                 const statusBadge = isPaid 
