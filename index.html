@@ -46,7 +46,7 @@ th{background:#f8fafc;font-size:12px;color:#475166;position:sticky;top:0}
 td.num,th.num{text-align:center;width:42px}.right{text-align:right}
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700}
 .check{color:#22b968;font-size:18px}.notpaid{font-style:italic;color:#a5acb8}
-.pay{border:0;background:var(--blue);color:white;border-radius:10px;padding:8px 13px;font-weight:800;font-size:12px}
+.pay{border:0;background:var(--blue);color:white;border-radius:10px;padding:8px 13px;font-weight:800;font-size:12px}.edit-icon{border:0;background:#eef4ff;color:var(--blue);width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800}.add-member{border:0;background:var(--blue);color:#fff;border-radius:12px;padding:10px 13px;font-weight:800;font-size:12px}
 .pay:active,.primary:active,.danger:active{transform:scale(.97)}
 .toolbar{display:flex;gap:9px;margin:12px 0}
 .search{flex:1;border:1px solid var(--line);background:white;border-radius:12px;padding:11px 12px;outline:none}
@@ -114,7 +114,10 @@ td.num,th.num{text-align:center;width:42px}.right{text-align:right}
   </section>
 
   <section id="tab-members" class="tab">
-    <div class="title">Anggota</div>
+    <div class="section-head" style="margin:0 0 4px">
+      <div class="title">Anggota</div>
+      <button class="add-member" onclick="openMemberEditor()">✎ Tambah</button>
+    </div>
     <div class="subtitle">Catatan kas bulanan • <b id="memberMonth"></b></div>
     <div class="toolbar">
       <input id="memberSearch" class="search" placeholder="Cari nama..." oninput="renderMembers()">
@@ -161,6 +164,16 @@ td.num,th.num{text-align:center;width:42px}.right{text-align:right}
     <div class="modal-actions"><button class="secondary" onclick="closeModal()">Batal</button><button class="primary" onclick="confirmPayment()">Ya, Bayar</button></div>
   </div>
 
+  <div id="memberModal" class="modal hidden">
+    <h3 id="memberTitle">Tambah Anggota</h3>
+    <p id="memberDesc">Tambahkan nama anggota baru ke daftar kas.</p>
+    <div class="form">
+      <label>Nama Anggota</label><input id="memberName" type="text" maxlength="80" placeholder="Contoh: Siti">
+      <label>Nominal Setoran</label><input id="memberNominal" type="number" min="0" inputmode="numeric" placeholder="10000">
+    </div>
+    <div class="modal-actions"><button class="secondary" onclick="closeModal()">Batal</button><button id="memberSaveBtn" class="primary" onclick="saveMember()">Simpan</button></div>
+  </div>
+
   <div id="txModal" class="modal hidden">
     <h3 id="txTitle">Tambah Transaksi</h3>
     <div class="form">
@@ -180,9 +193,9 @@ td.num,th.num{text-align:center;width:42px}.right{text-align:right}
 <div id="toast" class="toast"></div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzJRb3YpHWlPSM5ujgb4kdSjWwc4p1jd7jcVzGZKK7I4UTWaenGkwS9Cha3TMgFQU-S/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxROPREcUFjh8SsiBNqUbWasB8ZTIg46-48WTTtascd0GQ-R83YH2yZbFeVTzHknMx3lg/exec";
 const STORAGE_KEY = "catatan_kas_v2_cache";
-const DEFAULT_PIN = "123456";
+const DEFAULT_PIN = "123";
 
 let data = {anggota:[], transaksi:[], pembayaran:[]};
 let selectedMonth = "Agustus 2026";
@@ -307,12 +320,41 @@ function renderMembers(){
   body.innerHTML="";
   list.forEach((m,i)=>{
     const id=String(m.id), yes=paid.has(id), nominal=Number(m.nominal)||0;
-    const action=isAdmin?(yes?'<span class="check">✓</span>':`<button class="pay" onclick='startPayment(${JSON.stringify(id)},${JSON.stringify(m.nama)},${nominal})'>Bayar</button>`):"";
-    body.insertAdjacentHTML("beforeend",`<tr><td class="num">${i+1}</td><td><b>${esc(m.nama)}</b></td><td class="right">${yes?rupiah(nominal):'<span class="notpaid">Belum</span>'}</td><td class="right">${action}</td></tr>`);
+    const action=isAdmin
+      ? (yes?'<span class="check">✓</span>':`<button class="pay" onclick='startPayment(${JSON.stringify(id)},${JSON.stringify(m.nama)},${nominal})'>Bayar</button>`)
+      : "";
+    const edit=isAdmin?`<button class="edit-icon" title="Edit anggota" onclick='openMemberEditor(${JSON.stringify(id)})'>✎</button>`:"";
+    body.insertAdjacentHTML("beforeend",`<tr><td class="num">${i+1}</td><td><b>${esc(m.nama)}</b></td><td class="right">${yes?rupiah(nominal):'<span class="notpaid">Belum</span>'}</td><td class="right" style="white-space:nowrap">${action} ${edit}</td></tr>`);
   });
   if(!list.length) body.innerHTML='<tr><td colspan="4" class="empty">Anggota tidak ditemukan.</td></tr>';
   const first=data.anggota[0]; document.getElementById("nominalInfo").textContent=first?rupiah(first.nominal)+" / orang":"Rp0 / orang";
   document.getElementById("totalMonth").textContent=rupiah([...paid].reduce((sum,id)=>{const m=data.anggota.find(x=>String(x.id)===id);return sum+(Number(m?.nominal)||0)},0));
+}
+
+let editingMemberId=null;
+function openMemberEditor(id=null){
+  if(!isAdmin){openPin();return}
+  editingMemberId=id==null?null:String(id);
+  const member=editingMemberId?data.anggota.find(x=>String(x.id)===editingMemberId):null;
+  document.getElementById("memberTitle").textContent=member?"Edit Anggota":"Tambah Anggota";
+  document.getElementById("memberDesc").textContent=member?"Ubah nama atau nominal setoran anggota.":"Tambahkan anggota baru ke daftar kas.";
+  document.getElementById("memberName").value=member?member.nama:"";
+  document.getElementById("memberNominal").value=member?Number(member.nominal)||10000:10000;
+  openModal("memberModal");
+  setTimeout(()=>document.getElementById("memberName").focus(),100);
+}
+
+async function saveMember(){
+  const nama=document.getElementById("memberName").value.trim();
+  const nominal=Number(document.getElementById("memberNominal").value);
+  if(!nama){showMessageBox("Nama belum diisi","Masukkan nama anggota.");return}
+  if(nominal<0){showMessageBox("Nominal tidak valid","Nominal setoran tidak boleh negatif.");return}
+  const btn=document.getElementById("memberSaveBtn");btn.disabled=true;btn.textContent="Menyimpan...";
+  try{
+    const j=await apiPost("simpan_anggota",{id:editingMemberId,nama,nominal,status:"Aktif"});
+    mergeServerResponse(j);closeModal();toast(editingMemberId?"Data anggota diperbarui ✓":"Anggota baru ditambahkan ✓");
+  }catch(e){showMessageBox("Gagal menyimpan",e.message)}
+  finally{btn.disabled=false;btn.textContent="Simpan"}
 }
 function renderTransactions(){
   const c=process(), box=document.getElementById("txList");
